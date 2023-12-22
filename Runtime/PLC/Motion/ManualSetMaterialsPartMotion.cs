@@ -1,8 +1,6 @@
-using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 
-namespace NonsensicalKit.Editor.PLC
+namespace NonsensicalKit.DigitalTwin.PLC
 {
     /// <summary>
     /// 人工放置物料部件

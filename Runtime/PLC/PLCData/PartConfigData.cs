@@ -1,8 +1,8 @@
-using NonsensicalKit.Editor.Service.Config;
+using NonsensicalKit.Core.Service.Config;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.PLC
+namespace NonsensicalKit.DigitalTwin.PLC
 {
     [CreateAssetMenu(fileName = "PartConfigData", menuName = "ScriptableObjects/PartConfigData")]
     public class PartConfigData : ConfigObject

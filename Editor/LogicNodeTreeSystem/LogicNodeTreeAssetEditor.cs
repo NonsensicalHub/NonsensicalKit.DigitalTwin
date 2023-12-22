@@ -1,8 +1,8 @@
-using NonsensicalKit.Editor.LogicNodeTreeSystem;
+using NonsensicalKit.DigitalTwin.LogicNodeTreeSystem;
 using UnityEditor;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.DigitalTwin.LogicNodeTreeSystem
+namespace NonsensicalKit.DigitalTwin.Editor.LogicNodeTreeSystem
 {
     [CustomEditor(typeof(LogicNodeTreeAsset))]
     public class LogicNodeTreeAssetEditor : UnityEditor.Editor

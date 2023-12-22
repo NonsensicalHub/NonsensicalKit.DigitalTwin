@@ -1,6 +1,6 @@
-using NonsensicalKit.Editor;
+using NonsensicalKit.Core;
 
-namespace NonsensicalKit.Editor.LogicNodeTreeSystem
+namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 {
     [AggregatorEnum]
     public enum LogicNodeEnum

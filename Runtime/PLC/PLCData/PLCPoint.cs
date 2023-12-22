@@ -1,6 +1,6 @@
 using Newtonsoft.Json;
 
-namespace NonsensicalKit.Editor.PLC
+namespace NonsensicalKit.DigitalTwin.PLC
 {
     public enum PLCDataType
     {

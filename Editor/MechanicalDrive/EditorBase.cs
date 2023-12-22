@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.DigitalTwin.MechanicalDrive
+namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
 {
     public class EditorBase : UnityEditor. Editor
     {

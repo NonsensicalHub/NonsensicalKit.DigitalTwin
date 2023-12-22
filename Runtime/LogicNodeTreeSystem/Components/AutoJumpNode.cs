@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.LogicNodeTreeSystem
+namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 {
     /// <summary>
     /// 用于某些虚拟节点(无对应的实体对象)的自动跳转

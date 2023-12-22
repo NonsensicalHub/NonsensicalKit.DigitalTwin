@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.PLC
+namespace NonsensicalKit.DigitalTwin.PLC
 {
     /// <summary>
     /// 传感器控制，只用于判断是否有对象

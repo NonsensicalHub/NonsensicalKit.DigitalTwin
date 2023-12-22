@@ -1,5 +1,5 @@
-using NonsensicalKit.Editor;
-using NonsensicalKit.Editor;
+using NonsensicalKit.Core;
+using NonsensicalKit.DigitalTwin;
 using UnityEngine;
 
 namespace PLCKit

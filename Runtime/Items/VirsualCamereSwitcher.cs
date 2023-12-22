@@ -1,7 +1,7 @@
 using Cinemachine;
-using NonsensicalKit.Editor;
+using NonsensicalKit.Core;
 
-namespace NonsensicalKit.Editor
+namespace NonsensicalKit.DigitalTwin
 {
     /// <summary>
     /// 基于Cinemachine的多摄像机管理，负责相机之间的切换

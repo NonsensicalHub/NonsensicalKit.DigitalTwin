@@ -2,7 +2,7 @@ using NonsensicalKit.Tools;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.PLC
+namespace NonsensicalKit.DigitalTwin.PLC
 {
     /// <summary>
     /// 使用两个传感器值控制运动，通过离开的时机来及时同步

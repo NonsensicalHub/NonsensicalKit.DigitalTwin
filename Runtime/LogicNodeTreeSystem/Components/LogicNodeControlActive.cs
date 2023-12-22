@@ -1,9 +1,9 @@
-using NonsensicalKit.Editor;
-using NonsensicalKit.Editor.Service;
+using NonsensicalKit.Core;
+using NonsensicalKit.Core.Service;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.LogicNodeTreeSystem
+namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 {
     /// <summary>
     /// 此节点控制的判断条件

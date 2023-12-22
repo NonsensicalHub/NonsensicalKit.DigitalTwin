@@ -1,13 +1,13 @@
 using NonsensicalKit;
-using NonsensicalKit.Editor;
-using NonsensicalKit.Editor.Service;
+using NonsensicalKit.Core;
+using NonsensicalKit.Core.Service;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.PLC
+namespace NonsensicalKit.DigitalTwin.PLC
 {
     /// <summary>
     /// 收集数据并缓存，然后在合适的时机进行分发

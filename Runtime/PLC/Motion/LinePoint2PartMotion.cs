@@ -2,7 +2,7 @@ using NonsensicalKit.Tools;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.PLC
+namespace NonsensicalKit.DigitalTwin.PLC
 {
     /// <summary>
     /// 传送带双层停止点

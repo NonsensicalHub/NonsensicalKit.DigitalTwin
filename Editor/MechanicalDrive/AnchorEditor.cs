@@ -1,8 +1,8 @@
-using NonsensicalKit.Editor.MechanicalDrive;
+using NonsensicalKit.DigitalTwin.MechanicalDrive;
 using UnityEditor;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.DigitalTwin.MechanicalDrive
+namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
 {
     public class AnchorEditor : EditorWindow
     {

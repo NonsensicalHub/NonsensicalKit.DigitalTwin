@@ -1,8 +1,8 @@
-using NonsensicalKit.Editor.Service;
+using NonsensicalKit.Core.Service;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace NonsensicalKit.Editor.LogicNodeTreeSystem
+namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 {
     [RequireComponent(typeof(Button))]
     public class SwitchNodeButton : MonoBehaviour

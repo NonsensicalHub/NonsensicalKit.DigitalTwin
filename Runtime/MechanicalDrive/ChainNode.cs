@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.MechanicalDrive
+namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 {
     public class ChainNode : MonoBehaviour
     {

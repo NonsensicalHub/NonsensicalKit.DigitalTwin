@@ -1,7 +1,7 @@
 using NonsensicalKit.Tools;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.MechanicalDrive
+namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 {
     public class LinearVibrator : Mechanism
     {

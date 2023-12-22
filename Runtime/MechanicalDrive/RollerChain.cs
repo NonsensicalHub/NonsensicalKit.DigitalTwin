@@ -1,4 +1,4 @@
-namespace NonsensicalKit.Editor.MechanicalDrive
+namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 {
     using UnityEngine;
 

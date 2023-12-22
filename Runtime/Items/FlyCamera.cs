@@ -1,8 +1,8 @@
 using Cinemachine;
-using NonsensicalKit.Editor;
+using NonsensicalKit.Core;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor
+namespace NonsensicalKit.DigitalTwin
 {
     /// <summary>
     /// 受刚体控制的飞行摄像机

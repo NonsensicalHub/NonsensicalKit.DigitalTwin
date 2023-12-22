@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.PLC
+namespace NonsensicalKit.DigitalTwin.PLC
 {
     public class HalfPhysicalMaterials : MonoBehaviour
     {

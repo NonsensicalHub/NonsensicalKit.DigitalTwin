@@ -1,8 +1,8 @@
-using NonsensicalKit.Editor;
-using NonsensicalKit.Editor.Service;
+using NonsensicalKit.Core;
+using NonsensicalKit.Core.Service;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.LogicNodeTreeSystem
+namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 {
     /// <summary>
     /// 自动添加监听

@@ -1,8 +1,8 @@
-using NonsensicalKit.Editor.Service.Config;
+using NonsensicalKit.Core.Service.Config;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.LogicNodeTreeSystem
+namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 {
     /// <summary>
     /// 自定义序列化存储参考： https://docs.unity3d.com/cn/current/Manual/script-Serialization-Custom.html

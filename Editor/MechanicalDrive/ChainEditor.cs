@@ -1,9 +1,9 @@
-using NonsensicalKit.Editor.MechanicalDrive;
+using NonsensicalKit.DigitalTwin.MechanicalDrive;
 using System;
 using UnityEditor;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.DigitalTwin.MechanicalDrive
+namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
 {
     [CustomEditor(typeof(Chain), true)]
     public class ChainEditor : EditorBase

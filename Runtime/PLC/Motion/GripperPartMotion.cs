@@ -2,7 +2,7 @@ using NonsensicalKit.Tools;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.PLC
+namespace NonsensicalKit.DigitalTwin.PLC
 {
     /// <summary>
     /// 夹爪部件，默认使用夹紧松开两个传感器数据

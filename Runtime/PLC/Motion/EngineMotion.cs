@@ -1,7 +1,7 @@
-using NonsensicalKit.Editor.MechanicalDrive;
+using NonsensicalKit.DigitalTwin.MechanicalDrive;
 using System.Collections.Generic;
 
-namespace NonsensicalKit.Editor.PLC
+namespace NonsensicalKit.DigitalTwin.PLC
 {
     public class EngineMotion : PartMotionBase
     {

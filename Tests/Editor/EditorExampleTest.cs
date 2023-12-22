@@ -4,7 +4,7 @@ using UnityEngine.TestTools;
 using NUnit.Framework;
 using System.Collections;
 
-namespace TonyBeanDong.NonsensicalkitDigitaltwin.Editor.Tests 
+namespace NonsensicalKit.DigitalTwin.Editor.Tests 
 {
 	
 	class EditorExampleTest 

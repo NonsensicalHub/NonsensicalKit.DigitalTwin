@@ -2,7 +2,7 @@ using NonsensicalKit.Tools;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.PLC
+namespace NonsensicalKit.DigitalTwin.PLC
 {
     /// <summary>
     /// 气缸运动，一个信号可能操控多个气缸

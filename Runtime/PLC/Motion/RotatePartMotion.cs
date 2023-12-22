@@ -2,7 +2,7 @@ using NonsensicalKit.Tools;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.PLC
+namespace NonsensicalKit.DigitalTwin.PLC
 {
     /// <summary>
     /// 使用int索引控制旋转部件对象，如刀库

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.MechanicalDrive
+namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 {
     [RequireComponent(typeof(Renderer))]
     public class Belt : Mechanism

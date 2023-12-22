@@ -1,11 +1,11 @@
-using NonsensicalKit.Editor;
-using NonsensicalKit.Editor.Log;
-using NonsensicalKit.Editor.Service;
-using NonsensicalKit.Editor.Service.Config;
+using NonsensicalKit.Core;
+using NonsensicalKit.Core.Log;
+using NonsensicalKit.Core.Service;
+using NonsensicalKit.Core.Service.Config;
 using System;
 using System.Collections.Generic;
 
-namespace NonsensicalKit.Editor.LogicNodeTreeSystem
+namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 {
     public class LogicNodeManager : NonsensicalMono ,IMonoService
     {

@@ -1,10 +1,9 @@
-using NonsensicalKit;
-using NonsensicalKit.Editor;
+using NonsensicalKit.Core;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace NonsensicalKit.Editor.PLC
+namespace NonsensicalKit.DigitalTwin.PLC
 {
     /// <summary>
     /// 部件运动基类

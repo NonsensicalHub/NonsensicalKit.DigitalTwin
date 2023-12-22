@@ -3,7 +3,7 @@ using UnityEngine.TestTools;
 using NUnit.Framework;
 using System.Collections;
 
-namespace TonyBeanDong.NonsensicalkitDigitaltwin.Tests 
+namespace NonsensicalKit.DigitalTwin.Tests 
 {
 	
 	class RuntimeExampleTest 

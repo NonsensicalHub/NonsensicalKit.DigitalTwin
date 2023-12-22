@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace NonsensicalKit.Editor.PLC
+namespace NonsensicalKit.DigitalTwin.PLC
 {
     /// <summary>
     /// 多轴运动部件运动和行为基类
