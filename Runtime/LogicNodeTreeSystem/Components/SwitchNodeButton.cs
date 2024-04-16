@@ -20,7 +20,7 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 
         private void OnButtonClick()
         {
-            if (_manager!=null)
+            if (_manager != null)
             {
 
                 _manager.SwitchNode(m_nodeID);

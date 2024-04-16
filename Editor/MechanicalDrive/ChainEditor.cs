@@ -13,7 +13,7 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
         #endregion
 
         #region Protected Method
-        protected  void OnEnable()
+        protected void OnEnable()
         {
             if (script.AnchorRoot)
             {
@@ -29,7 +29,7 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
             }
         }
 
-        protected  void OnSceneGUI()
+        protected void OnSceneGUI()
         {
             #region Coordinate System
             var horizontal = script.transform.right * lineLength;
@@ -46,7 +46,7 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
             {
                 foreach (Transform anchor in script.AnchorRoot)
                 {
-                    Handles.SphereHandleCap (0, anchor.position, Quaternion.identity, nodeSize, EventType.Repaint);
+                    Handles.SphereHandleCap(0, anchor.position, Quaternion.identity, nodeSize, EventType.Repaint);
                 }
 
                 if (script.AnchorRoot.childCount >= 2)
@@ -98,7 +98,7 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
                     Handles.DrawLine(AnchorEditor.start.position, AnchorEditor.end.position);
                     for (int i = 0; i < AnchorEditor.countL; i++)
                     {
-                        Handles.SphereHandleCap (0, AnchorEditor.start.position + direction * space * (i + 1), Quaternion.identity, nodeSize, EventType.Repaint);
+                        Handles.SphereHandleCap(0, AnchorEditor.start.position + direction * space * (i + 1), Quaternion.identity, nodeSize, EventType.Repaint);
                     }
                 }
                 #endregion

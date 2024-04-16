@@ -1,13 +1,12 @@
 using NonsensicalKit.Core;
 using NonsensicalKit.Core.Log;
 using NonsensicalKit.Core.Service;
-using NonsensicalKit.Core.Service.Config;
 using System;
 using System.Collections.Generic;
 
 namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 {
-    public class LogicNodeManager : NonsensicalMono ,IMonoService
+    public class LogicNodeManager : NonsensicalMono, IMonoService
     {
         public Action OnSwitchEnd { get; set; }  //切换后调用一次，然后清空
 
@@ -22,12 +21,29 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 
         private string _switchBuffer;
 
-        private void Awake()
-        {
-            ServiceCore.SafeGet<ConfigService>(GetConfig);
-        }
-
         #region Public Mothod
+
+        public void InitConfig(LogicNodeTreeConfigData configData)
+        {
+            configData.OnAfterDeserialize();
+            BuildLogicNodeTree(configData.Root);
+            BuildDictionary();
+            if (string.IsNullOrEmpty(_switchBuffer) == false)
+            {
+                SwitchNode(_switchBuffer);
+            }
+            CrtSelectNode = _root;
+            if (!IsReady)
+            {
+                IsReady = true;
+                InitCompleted?.Invoke();
+                InitCompleted = null;
+            }
+            else
+            {
+                Publish((int)LogicNodeEnum.SwitchNode, CrtSelectNode);
+            }
+        }
 
         public LogicNode GetNode(string nodeName)
         {
@@ -43,14 +59,15 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
         }
 
         public void SwitchNode(string nodeName)
-        {;
+        {
+            ;
             if (_dic.ContainsKey(nodeName))
             {
                 SwitchNodeCheck(_dic[nodeName]);
             }
             else
             {
-                _switchBuffer= nodeName;
+                _switchBuffer = nodeName;
             }
         }
 
@@ -207,27 +224,6 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 
         #region Private Method
 
-        private void GetConfig(ConfigService service)
-        {
-            ConfigService configManager = service as ConfigService;
-            if (configManager.TryGetConfig<LogicNodeTreeConfigData>(out var v))
-            {
-                v.OnAfterDeserialize();
-                BuildLogicNodeTree(v.Root);
-                BuildDictionary();
-                if (string.IsNullOrEmpty(_switchBuffer)==false)
-                {
-                    SwitchNode(_switchBuffer);
-                }
-                IsReady = true;
-                InitCompleted?.Invoke();
-                InitCompleted = null;
-            }
-            else
-            {
-                LogCore.Error("未获取到逻辑节点数据");
-            }
-        }
 
         /// <summary>
         /// 构建节点树
@@ -238,7 +234,7 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
             Queue<LogicNode> sns = new Queue<LogicNode>();
             Queue<LogicNodeData> snds = new Queue<LogicNodeData>();
 
-            this._root = new LogicNode(root.NodeName,  null, new LogicNode[root.Children.Count]);
+            this._root = new LogicNode(root.NodeName, null, new LogicNode[root.Children.Count]);
 
             sns.Enqueue(this._root);
             snds.Enqueue(root);
@@ -251,7 +247,7 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
                 for (int i = 0; i < crtNodeData.Children.Count; i++)
                 {
                     int length = crtNodeData.Children[i].Children.Count;
-                    var newNode = new LogicNode(crtNodeData.Children[i].NodeName,crtNode, new LogicNode[length]);
+                    var newNode = new LogicNode(crtNodeData.Children[i].NodeName, crtNode, new LogicNode[length]);
                     crtNode.ChildNode[i] = newNode;
                     if (length > 0)
                     {

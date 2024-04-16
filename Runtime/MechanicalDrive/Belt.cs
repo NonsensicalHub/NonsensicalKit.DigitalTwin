@@ -21,7 +21,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
                 Debug.Log("此机械结构不支持角运动");
                 return;
             }
-            mRenderer.material.mainTextureOffset += new Vector2(power * m_ratio , 0);
+            mRenderer.material.mainTextureOffset += new Vector2(power * m_ratio, 0);
         }
     }
 }

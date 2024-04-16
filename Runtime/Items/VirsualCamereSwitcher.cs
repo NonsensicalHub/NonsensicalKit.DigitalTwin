@@ -34,5 +34,4 @@ namespace NonsensicalKit.DigitalTwin
             _laseCamera = newCamera;
         }
     }
-
 }

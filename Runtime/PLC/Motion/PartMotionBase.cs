@@ -17,7 +17,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
         /// <summary>
         /// 在Awake时初始化
         /// </summary>
-        [SerializeField] private bool m_autoInit=false;
+        [SerializeField] private bool m_autoInit = false;
 
         /// <summary>
         /// 从毫秒转换成秒的倍率
@@ -33,7 +33,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
         protected virtual void Awake()
         {
             IOCC.Register<PLCPartInfo>(GetInfo);
-            
+
         }
 
         private void OnEnable()
@@ -62,7 +62,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
         /// </summary>
         protected virtual void Init()
         {
-            Publish<string,Action<List<PLCPoint>>>("addPartListener", m_partID, OnReceiveData);
+            Publish<string, Action<List<PLCPoint>>>("addPartListener", m_partID, OnReceiveData);
         }
 
         /// <summary>

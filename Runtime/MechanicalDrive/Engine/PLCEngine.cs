@@ -39,7 +39,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 
         public void ChangeValue(string newValueStr)
         {
-            if (float.TryParse(newValueStr,out var v))
+            if (float.TryParse(newValueStr, out var v))
             {
                 ChangeValue(v);
             }
@@ -59,9 +59,9 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         /// </summary>
         /// <param name="newValue"></param>
         /// <param name="time">动作用时，单位秒</param>
-        public void ChangeValue(float newValue,float time)
+        public void ChangeValue(float newValue, float time)
         {
-            if (time==0)
+            if (time == 0)
             {
                 ChangeValue(newValue);
                 return;
@@ -69,7 +69,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
             if (newValue != _targetValue)
             {
                 _targetValue = newValue;
-                m_maxPower = Mathf.Abs (_targetValue-_currentValue)/time;
+                m_maxPower = Mathf.Abs(_targetValue - _currentValue) / time;
                 enabled = true;
             }
         }

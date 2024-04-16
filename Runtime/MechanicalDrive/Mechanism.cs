@@ -12,7 +12,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
     /// 机械装置
     /// “借鉴”：https://github.com/mogoson/MGS.Machinery
     /// </summary>
-    public abstract class  Mechanism :MonoBehaviour
+    public abstract class Mechanism : MonoBehaviour
     {
         public abstract void Drive(float power, DriveType driveType);
     }

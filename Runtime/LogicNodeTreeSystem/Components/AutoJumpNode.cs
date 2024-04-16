@@ -9,7 +9,6 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
     {
         [SerializeField] private string m_jumpTarget; //跳转的目标对象，为空时跳转到上一级
 
-
         protected override void Awake()
         {
             base.Awake();
@@ -17,11 +16,11 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 
         protected override void OnSwitch(LogicNodeState lns)
         {
-            if (_manager==null)
+            if (_manager == null)
             {
                 return;
             }
-            if (lns.isSelect==false)
+            if (lns.isSelect == false)
             {
                 return;
             }
@@ -31,7 +30,7 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
                 if (node != null && node.ParentNode != null)
                 {
                     node = node.ParentNode;
-                    if (node!=null)
+                    if (node != null)
                     {
                         _manager.OnSwitchEnd += () => _manager.SwitchNode(node.NodeName);
                     }

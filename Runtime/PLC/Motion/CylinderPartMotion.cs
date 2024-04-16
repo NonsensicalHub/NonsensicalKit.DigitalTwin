@@ -47,7 +47,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
                     {
                         m_ControlTarget[i].DoLocalMove(m_TargetLocalPosition[i], m_TimeRequired);
                         m_ControlTarget[i].DoLocalRotate(_targetRot[i], m_TimeRequired);
-                    }   
+                    }
                 }
                 else
                 {

@@ -7,7 +7,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
     /// <summary>
     /// 使用两个传感器值控制运动，通过离开的时机来及时同步
     /// </summary>
-    public  class Sensor2MovePartMotion : PartMotionBase
+    public class Sensor2MovePartMotion : PartMotionBase
     {
         public Transform m_ControlTarget;
         public JointAxisType m_Type;       //运动类型
@@ -39,16 +39,16 @@ namespace NonsensicalKit.DigitalTwin.PLC
                 return;
             }
 
-            if (_check1 && !bool.Parse(part[0].value)   )
+            if (_check1 && !bool.Parse(part[0].value))
             {
                 UpdateState(false);
             }
-            else if (_check2 && !bool.Parse(part[1].value)  )
+            else if (_check2 && !bool.Parse(part[1].value))
             {
                 UpdateState(true);
             }
             _check1 = bool.Parse(part[0].value);
-            _check2 = bool.Parse(part[1].value) ;
+            _check2 = bool.Parse(part[1].value);
         }
 
         private void UpdateState(bool targetIsState1, bool immediately = false)

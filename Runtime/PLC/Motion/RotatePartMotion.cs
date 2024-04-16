@@ -7,7 +7,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
     /// <summary>
     /// 使用int索引控制旋转部件对象，如刀库
     /// </summary>
-    public  class RotatePartMotion : PartMotionBase
+    public class RotatePartMotion : PartMotionBase
     {
         /// <summary>
         /// 控制旋转的对象

@@ -1,4 +1,3 @@
-using NonsensicalKit;
 using NonsensicalKit.Core;
 using NonsensicalKit.Core.Service;
 using System;
@@ -12,7 +11,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
     /// <summary>
     /// 收集数据并缓存，然后在合适的时机进行分发
     /// </summary>
-    public class DataDispenser : NonsensicalMono,IMonoService
+    public class DataDispenser : NonsensicalMono, IMonoService
     {
         [Tooltip("接收到未配置过的点位时输出日志")][SerializeField] private bool logNonExistentPoint = false;
 

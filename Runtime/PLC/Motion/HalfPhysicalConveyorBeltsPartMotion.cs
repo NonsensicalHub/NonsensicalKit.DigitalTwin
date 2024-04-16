@@ -28,7 +28,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
         public float m_ConversionRate = 1;//转换率，当为1时，数据为0.1代表速度为0.1m/s
 
         public HalfPhysicalCollisionArea m_Area;
-        public bool  m_twoDir=true;
+        public bool m_twoDir = true;
 
         private List<HalfPhysicalMaterials> _materialss = new List<HalfPhysicalMaterials>();
         private float _speed1;
@@ -55,7 +55,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
                 {
                     foreach (var item in _materialss)
                     {
-                        item.Move(GetDir(m_Dir1Type) * _speed1 );
+                        item.Move(GetDir(m_Dir1Type) * _speed1);
                     }
                 }
             }

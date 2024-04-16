@@ -35,7 +35,7 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
             ServiceCore.SafeGet<LogicNodeManager>(OnGetService);
         }
 
-        private  void OnGetService(LogicNodeManager service)
+        private void OnGetService(LogicNodeManager service)
         {
             NodeState = new LogicNodeState();
 

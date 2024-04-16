@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 {
-    public class Synchronizer :Mechanism
+    public class Synchronizer : Mechanism
     {
         [SerializeField] private Mechanism[] m_mechanisms;
         [SerializeField] private float m_PowerRadius = 1;

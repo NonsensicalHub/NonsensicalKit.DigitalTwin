@@ -34,8 +34,8 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         public override void Drive(float velocity, DriveType driveType)
         {
             var wormSpeed = velocity / worm.GearRadius;
-            worm.transform.Rotate(Vector3.forward, wormSpeed , Space.Self);
-            gear.transform.Rotate(Vector3.forward, wormSpeed * threads / teeth , Space.Self);
+            worm.transform.Rotate(Vector3.forward, wormSpeed, Space.Self);
+            gear.transform.Rotate(Vector3.forward, wormSpeed * threads / teeth, Space.Self);
         }
         #endregion
     }

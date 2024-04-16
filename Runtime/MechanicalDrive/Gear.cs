@@ -17,7 +17,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         /// </summary>
         [SerializeField] private Mechanism[] m_engageObjects;
 
-        [SerializeField] private Vector3 m_rotateAxis=new Vector3(0,0,1);
+        [SerializeField] private Vector3 m_rotateAxis = new Vector3(0, 0, 1);
 
         public float GearRadius => m_gearRadius;
         public Vector3 RotateAxis => m_rotateAxis;
@@ -39,7 +39,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 
         private void LinearDrive(float power)
         {
-            transform.Rotate(m_rotateAxis, power *Mathf.Rad2Deg/ m_gearRadius, Space.Self);
+            transform.Rotate(m_rotateAxis, power * Mathf.Rad2Deg / m_gearRadius, Space.Self);
 
             foreach (var item in m_coaxialObjects)
             {
@@ -53,7 +53,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 
         private void AngularDrive(float power)
         {
-            transform.Rotate(m_rotateAxis, power , Space.Self);
+            transform.Rotate(m_rotateAxis, power, Space.Self);
 
             foreach (var item in m_coaxialObjects)
             {

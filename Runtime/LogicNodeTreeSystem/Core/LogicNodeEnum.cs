@@ -5,6 +5,7 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
     [AggregatorEnum]
     public enum LogicNodeEnum
     {
-        SwitchNode = 10200
+        SwitchNode = 10200,
+        InitNode = 10201
     }
 }

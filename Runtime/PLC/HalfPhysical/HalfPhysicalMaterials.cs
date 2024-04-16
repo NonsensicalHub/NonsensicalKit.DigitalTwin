@@ -32,6 +32,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
         {
             rb.MovePosition(transform.position);
         }
+
         private void Update()
         {
             if (!isFixed && moveCount > 0)
@@ -41,7 +42,6 @@ namespace NonsensicalKit.DigitalTwin.PLC
                 offset = Vector3.zero;
             }
         }
-
 
         private void OnDestroy()
         {

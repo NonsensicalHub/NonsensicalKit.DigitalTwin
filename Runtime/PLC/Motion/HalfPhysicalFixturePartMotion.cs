@@ -56,7 +56,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
 
         protected override void OnReceiveData(List<PLCPoint> part)
         {
-            if (_isClamping !=bool.Parse( part[0].value))
+            if (_isClamping != bool.Parse(part[0].value))
             {
                 _isClamping = bool.Parse(part[0].value);
                 if (_touchMaterials != null)

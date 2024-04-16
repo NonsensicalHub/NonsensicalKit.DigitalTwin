@@ -21,7 +21,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
             switch (driveType)
             {
                 case DriveType.Linear:
-                    _currentAngle += power*Mathf.Rad2Deg/ m_amplitudeRadius * m_speed;
+                    _currentAngle += power * Mathf.Rad2Deg / m_amplitudeRadius * m_speed;
                     break;
                 case DriveType.Angular:
                     _currentAngle += power * m_speed;

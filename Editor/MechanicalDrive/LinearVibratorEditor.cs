@@ -14,7 +14,7 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
         {
             get
             {
-                if (Application.isPlaying&& _script.transform.parent)
+                if (Application.isPlaying && _script.transform.parent)
                 {
                     return _script.transform.parent.TransformPoint(_script.StartPosition);
                 }
@@ -35,7 +35,7 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
 
         private void OnEnable()
         {
-            _script= target as LinearVibrator; ;
+            _script = target as LinearVibrator; ;
         }
 
         private void OnSceneGUI()

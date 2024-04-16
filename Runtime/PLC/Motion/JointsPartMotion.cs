@@ -5,7 +5,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
     /// <summary>
     /// 多轴运动部件运动和行为基类
     /// </summary>
-    public  class JointsPartMotion : PartMotionBase
+    public class JointsPartMotion : PartMotionBase
     {
         public JointSetting[] m_Joints;
         public bool m_UseLong;

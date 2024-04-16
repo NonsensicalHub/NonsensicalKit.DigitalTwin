@@ -73,7 +73,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
             }
         }
 
-        public override void Drive(float power,DriveType driveType)
+        public override void Drive(float power, DriveType driveType)
         {
             if (driveType == DriveType.Angular)
             {

@@ -6,7 +6,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
     /// <summary>
     /// 传感器控制，只用于判断是否有对象
     /// </summary>
-    public  class SensorPartMotion : PartMotionBase
+    public class SensorPartMotion : PartMotionBase
     {
         public GameObject m_ControlTarget;  //控制对象
         public bool m_inverse;
@@ -14,7 +14,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
         protected override void OnReceiveData(List<PLCPoint> part)
         {
             var b = bool.Parse(part[0].value);
-            m_ControlTarget.SetActive(m_inverse?!b:b);
+            m_ControlTarget.SetActive(m_inverse ? !b : b);
         }
         protected override PLCPartInfo GetInfo()
         {

@@ -1,4 +1,3 @@
-using NonsensicalKit.Tools;
 using UnityEngine;
 
 namespace NonsensicalKit.DigitalTwin.MechanicalDrive
@@ -6,11 +5,11 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
     public class LinearVibrator : Mechanism
     {
         [SerializeField] private float m_amplitudeRadius = 0.1f;
-        [SerializeField] private float m_speed =1f;
+        [SerializeField] private float m_speed = 1f;
 
         [SerializeField] private Vector3 m_moveAxis = new Vector3(0, 0, 1);
 
-        public Vector3 StartPosition=> _startPosition;
+        public Vector3 StartPosition => _startPosition;
         public Vector3 MoveAxis => m_moveAxis;
         public float AmplitudeRadius => m_amplitudeRadius;
         private Vector3 _startPosition;
@@ -47,10 +46,10 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
                 _direction *= -1;
                 _currentOffset = (-m_amplitudeRadius - _currentOffset) + -m_amplitudeRadius;
             }
-            else if(_currentOffset > m_amplitudeRadius)
+            else if (_currentOffset > m_amplitudeRadius)
             {
                 _direction *= -1;
-                _currentOffset = m_amplitudeRadius-( _currentOffset- m_amplitudeRadius) ;
+                _currentOffset = m_amplitudeRadius - (_currentOffset - m_amplitudeRadius);
             }
             transform.localPosition = _startPosition + _realAxis * _currentOffset;
         }

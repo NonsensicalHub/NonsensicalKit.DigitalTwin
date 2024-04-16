@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
 {
-    public class EditorBase : UnityEditor. Editor
+    public class EditorBase : UnityEditor.Editor
     {
         protected Color blue = new Color(0, 1, 1, 1);
         protected Color green = new Color(0, 1, 0, 1);
@@ -12,7 +12,7 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
         protected float arrowLength = 0.75f;
         protected float lineLength = 10;
 
-        protected  void DrawArrow(Vector3 start, Vector3 end, float size, string text, Color color)
+        protected void DrawArrow(Vector3 start, Vector3 end, float size, string text, Color color)
         {
             var gC = GUI.color;
             var hC = Handles.color;
@@ -28,7 +28,7 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
             Handles.color = hC;
         }
 
-        protected  void DrawArrow(Vector3 start, Vector3 direction, float length, float size, string text, Color color)
+        protected void DrawArrow(Vector3 start, Vector3 direction, float length, float size, string text, Color color)
         {
             var end = start + direction.normalized * length;
             DrawArrow(start, end, size, text, color);

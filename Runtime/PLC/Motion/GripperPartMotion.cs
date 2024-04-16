@@ -7,7 +7,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
     /// <summary>
     /// 夹爪部件，默认使用夹紧松开两个传感器数据
     /// </summary>
-    public  class GripperPartMotion : PartMotionBase
+    public class GripperPartMotion : PartMotionBase
     {
         public Transform m_ControlTarget1;
         public Transform m_ControlTarget2;

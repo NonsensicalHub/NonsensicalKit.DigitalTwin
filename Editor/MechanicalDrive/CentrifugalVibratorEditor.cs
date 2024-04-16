@@ -27,11 +27,11 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
         }
         #endregion
 
-        protected  void OnSceneGUI()
+        protected void OnSceneGUI()
         {
             Handles.color = blue;
             Handles.SphereHandleCap(0, startPosition, Quaternion.identity, nodeSize, EventType.Repaint);
-            Handles.SphereHandleCap (0, script.transform.position, Quaternion.identity, nodeSize, EventType.Repaint);
+            Handles.SphereHandleCap(0, script.transform.position, Quaternion.identity, nodeSize, EventType.Repaint);
             Handles.CircleHandleCap(0, startPosition, script.transform.rotation, script.AmplitudeRadius, EventType.Repaint);
 
             DrawArrow(startPosition, script.transform.position, nodeSize, string.Empty, blue);
