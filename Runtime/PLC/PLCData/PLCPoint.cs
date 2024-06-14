@@ -4,24 +4,14 @@ namespace NonsensicalKit.DigitalTwin.PLC
 {
     public enum PLCDataType
     {
-        //bool
-        Bit = 0,
-        //8 bits
-        Byte = 1,
-        //16 bits, 2 bytes
-        Word = 2,
-        //Double Word, 32 bits, 4 bytes
-        DWord = 3,
-        //16 bits, 2 bytes
-        Int = 4,
-        //Double Int 32 bits, 4 bytes
-        DInt = 5,
-        //32 bits, 4 bytes
-        Real = 6,
-        //Long Real, 64 bits, 8 bytes
-        LReal = 7,
-        //String
-        String = 8,
+        //0,1,false,true,False,True
+        Bool = 0,
+        //short,int,long
+        Int = 1,
+        //float,double
+        Float = 2,
+        //string
+        String = 3,
     }
 
     [System.Serializable]
@@ -70,17 +60,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
             this.pointID = id;
             this.point = point;
             this.ticks = ticks;
-            this.type = PLCDataType.Byte;
-            this.value = value.ToString();
-        }
-
-        public PLCPoint(string name, string id, string point, long ticks, byte value)
-        {
-            this.name = name;
-            this.pointID = id;
-            this.point = point;
-            this.ticks = ticks;
-            this.type = PLCDataType.Byte;
+            this.type = PLCDataType.Bool;
             this.value = value.ToString();
         }
 
@@ -90,7 +70,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
             this.pointID = id;
             this.point = point;
             this.ticks = ticks;
-            this.type = PLCDataType.Word;
+            this.type = PLCDataType.Int;
             this.value = value.ToString();
         }
 
@@ -100,7 +80,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
             this.pointID = id;
             this.point = point;
             this.ticks = ticks;
-            this.type = PLCDataType.DWord;
+            this.type = PLCDataType.Int;
             this.value = value.ToString();
         }
 
@@ -120,7 +100,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
             this.pointID = id;
             this.point = point;
             this.ticks = ticks;
-            this.type = PLCDataType.DInt;
+            this.type = PLCDataType.Int;
             this.value = value.ToString();
         }
 
@@ -130,7 +110,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
             this.pointID = id;
             this.point = point;
             this.ticks = ticks;
-            this.type = PLCDataType.Real;
+            this.type = PLCDataType.Float;
             this.value = value.ToString();
         }
 
@@ -140,7 +120,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
             this.pointID = id;
             this.point = point;
             this.ticks = ticks;
-            this.type = PLCDataType.LReal;
+            this.type = PLCDataType.Float;
             this.value = value.ToString();
         }
 

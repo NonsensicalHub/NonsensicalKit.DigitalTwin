@@ -125,8 +125,8 @@ namespace NonsensicalKit.DigitalTwin.PLC
         {
             return new PLCPartInfo("单层传送带停止点", m_partID,
                 new List<PLCPointInfo>() {
-                new PLCPointInfo("当前传感",PLCDataType.Bit,false),
-                new PLCPointInfo("下一点位传感",PLCDataType.Bit,false)
+                new PLCPointInfo("当前传感",PLCDataType.Bool,false),
+                new PLCPointInfo("下一点位传感",PLCDataType.Bool,false)
                 });
         }
     }

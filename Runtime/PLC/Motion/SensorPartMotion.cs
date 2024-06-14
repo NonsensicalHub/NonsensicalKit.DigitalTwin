@@ -20,7 +20,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
         {
             return new PLCPartInfo("传感器部件", m_partID,
                 new List<PLCPointInfo>() {
-                new PLCPointInfo("传感",PLCDataType.Bit,false),
+                new PLCPointInfo("传感",PLCDataType.Bool,false),
                 });
         }
     }

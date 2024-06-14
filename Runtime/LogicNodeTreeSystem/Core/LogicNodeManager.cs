@@ -6,20 +6,34 @@ using System.Collections.Generic;
 
 namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 {
+    /// <summary>
+    /// 此节点控制的判断条件
+    /// </summary>
+    public enum LogicNodeCheckType
+    {
+        SelfSelect,     //自己是否被选中
+        SelfUnselect,     //自己是否未被选中
+        ParentSelect,   //自己或父节点是否被选中
+        ParentUnselect,   //自己或父节点是否未被选中
+        ChildSelect,    //自己或子节点是否被选中
+        ChildUnselect,    //自己或子节点是否未被选中
+        ParentOrChildSelect,               //自己或父节点或子节点被选中
+        ParentOrChildUnselect //自己或父节点或子节点未被选中
+    }
+
     public class LogicNodeManager : NonsensicalMono, IMonoService
     {
-        public Action OnSwitchEnd { get; set; }  //切换后调用一次，然后清空
-
-        public LogicNode CrtSelectNode { get; private set; } //当前选择的节点
-
         public bool IsReady { get; set; }
 
         public Action InitCompleted { get; set; }
 
+        public LogicNode CrtSelectNode { get; private set; } //当前选择的节点
+
         private LogicNode _root;    //根节点
+
         private Dictionary<string, LogicNode> _dic = new Dictionary<string, LogicNode>();   //所有节点的字典，用于快速查找
 
-        private string _switchBuffer;
+        private string _switchBuffer;   //记录未初始化前的切换，在初始化完成后执行
 
         #region Public Mothod
 
@@ -45,36 +59,34 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
             }
         }
 
-        public LogicNode GetNode(string nodeName)
+        public LogicNode GetNode(string nodeID)
         {
-            if (_dic.ContainsKey(nodeName))
+            if (_dic.ContainsKey(nodeID))
             {
-                return _dic[nodeName];
+                return _dic[nodeID];
             }
             else
             {
-                LogCore.Debug("未找到节点：" + nodeName);
+                LogCore.Debug("未找到节点：" + nodeID);
                 return null;
             }
         }
 
-        public void SwitchNode(string nodeName)
+        public void SwitchNode(string nodeID)
         {
-            ;
-            if (_dic.ContainsKey(nodeName))
+            if (_dic.ContainsKey(nodeID))
             {
-                SwitchNodeCheck(_dic[nodeName]);
+                DoSwitchNode(_dic[nodeID]);
             }
             else
             {
-                _switchBuffer = nodeName;
+                _switchBuffer = nodeID;
             }
         }
 
         /// <summary>
         /// 返回上一级
         /// </summary>
-        /// <param name="nodeName"></param>
         public bool ReturnPreviousLevel()
         {
             if (CrtSelectNode != null)
@@ -84,7 +96,7 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
                     LogCore.Debug("当前为顶节点，无法返回上一级节点");
                     return false;
                 }
-                SwitchNodeCheck(CrtSelectNode.ParentNode);
+                DoSwitchNode(CrtSelectNode.ParentNode);
 
                 return true;
             }
@@ -97,15 +109,46 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
         }
 
         /// <summary>
+        /// 检测所选节点是否被符合条件
+        /// </summary>
+        /// <param name="nodeID"></param>
+        /// <param name="checkType"></param>
+        /// <returns></returns>
+        public bool CheckState(string nodeID, LogicNodeCheckType checkType)
+        {
+            switch (checkType)
+            {
+                case LogicNodeCheckType.SelfSelect:
+                    return CheckState(nodeID);
+                case LogicNodeCheckType.SelfUnselect:
+                    return !CheckState(nodeID);
+                case LogicNodeCheckType.ParentSelect:
+                    return CheckStateWithParent(nodeID);
+                case LogicNodeCheckType.ParentUnselect:
+                    return !CheckStateWithParent(nodeID);
+                case LogicNodeCheckType.ChildSelect:
+                    return CheckStateWithChild(nodeID);
+                case LogicNodeCheckType.ChildUnselect:
+                    return !CheckStateWithChild(nodeID);
+                case LogicNodeCheckType.ParentOrChildSelect:
+                    return CheckStateWithParent(nodeID) || CheckStateWithChild(nodeID, false);
+                case LogicNodeCheckType.ParentOrChildUnselect:
+                    return !CheckStateWithParent(nodeID) && !CheckStateWithChild(nodeID, false);
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
         /// 检测所选节点是否被选中
         /// </summary>
-        /// <param name="nodeName"></param>
+        /// <param name="nodeID"></param>
         /// <returns></returns>
-        public bool CheckState(string nodeName)
+        public bool CheckState(string nodeID)
         {
-            if (CrtSelectNode != null && _dic.ContainsKey(nodeName))
+            if (CrtSelectNode != null && _dic.ContainsKey(nodeID))
             {
-                LogicNode crt = _dic[nodeName];
+                LogicNode crt = _dic[nodeID];
 
                 if (crt == CrtSelectNode)
                 {
@@ -116,16 +159,24 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
         }
 
         /// <summary>
-        /// 检测所选节点或者其父节点是否
+        /// 检测所选节点父节点是否被选中
         /// </summary>
-        /// <param name="nodeName"></param>
+        /// <param name="nodeID"></param>
+        /// <param name="includeSelf"></param>
         /// <returns></returns>
-        public bool CheckStateWithParent(string nodeName)
+        public bool CheckStateWithParent(string nodeID, bool includeSelf = true)
         {
-            if (CrtSelectNode != null && _dic.ContainsKey(nodeName))
+            if (CrtSelectNode != null && _dic.ContainsKey(nodeID))
             {
-                LogicNode crt = _dic[nodeName];
-
+                LogicNode crt;
+                if (includeSelf)
+                {
+                    crt = _dic[nodeID];
+                }
+                else
+                {
+                    crt = _dic[nodeID].ParentNode;
+                }
                 while (crt != null)
                 {
                     if (crt == CrtSelectNode)
@@ -142,19 +193,30 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
         }
 
         /// <summary>
-        /// 检测所选节点或者其子节点是否
+        /// 检测所选节点子节点是否被选中
         /// </summary>
-        /// <param name="nodeName"></param>
+        /// <param name="nodeID"></param>
+        /// <param name="includeSelf"></param>
         /// <returns></returns>
-        public bool CheckStateWithChild(string nodeName)
+        public bool CheckStateWithChild(string nodeID, bool includeSelf = true)
         {
-            if (CrtSelectNode != null && _dic.ContainsKey(nodeName))
+            if (CrtSelectNode != null && _dic.ContainsKey(nodeID))
             {
-                LogicNode checkNode = _dic[nodeName];
+                LogicNode checkNode = _dic[nodeID];
 
                 Queue<LogicNode> nodes = new Queue<LogicNode>();
 
-                nodes.Enqueue(checkNode);
+                if (includeSelf)
+                {
+                    nodes.Enqueue(checkNode);
+                }
+                else
+                {
+                    foreach (var item in checkNode.ChildNode)
+                    {
+                        nodes.Enqueue(item);
+                    }
+                }
 
                 while (nodes.Count > 0)
                 {
@@ -175,55 +237,9 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
             return false;
         }
 
-        /// <summary>
-        /// 更新对应节点的状态并返回是否状态有修改的布尔值
-        /// </summary>
-        /// <param name="nodeName"></param>
-        /// <param name="nodeState"></param>
-        /// <returns></returns>
-        public bool UpdateState(string nodeName, LogicNodeState nodeState)
-        {
-            bool originState1 = nodeState.isSelect;
-            bool originState2 = nodeState.parentSelect;
-            if (_dic.ContainsKey(nodeName))
-            {
-                LogicNode crt = _dic[nodeName];
-                nodeState.isSelect = crt == CrtSelectNode;
-
-                nodeState.parentSelect = false;
-                while (crt != null)
-                {
-                    if (crt == CrtSelectNode)
-                    {
-                        nodeState.parentSelect = true;
-                        break;
-                    }
-                    else
-                    {
-                        crt = crt.ParentNode;
-                    }
-                }
-            }
-            else
-            {
-                nodeState.isSelect = false;
-                nodeState.parentSelect = false;
-            }
-
-            if (originState1 != nodeState.isSelect || originState2 != nodeState.parentSelect)
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
         #endregion
 
-
         #region Private Method
-
 
         /// <summary>
         /// 构建节点树
@@ -234,7 +250,7 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
             Queue<LogicNode> sns = new Queue<LogicNode>();
             Queue<LogicNodeData> snds = new Queue<LogicNodeData>();
 
-            this._root = new LogicNode(root.NodeName, null, new LogicNode[root.Children.Count]);
+            this._root = new LogicNode(root.NodeID, null, new LogicNode[root.Children.Count]);
 
             sns.Enqueue(this._root);
             snds.Enqueue(root);
@@ -247,7 +263,7 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
                 for (int i = 0; i < crtNodeData.Children.Count; i++)
                 {
                     int length = crtNodeData.Children[i].Children.Count;
-                    var newNode = new LogicNode(crtNodeData.Children[i].NodeName, crtNode, new LogicNode[length]);
+                    var newNode = new LogicNode(crtNodeData.Children[i].NodeID, crtNode, new LogicNode[length]);
                     crtNode.ChildNode[i] = newNode;
                     if (length > 0)
                     {
@@ -271,13 +287,13 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
             while (nodes.Count > 0)
             {
                 LogicNode crtSN = nodes.Dequeue();
-                if (_dic.ContainsKey(crtSN.NodeName))
+                if (_dic.ContainsKey(crtSN.NodeID))
                 {
-                    LogCore.Warning($"节点名称重复:{crtSN.NodeName}");
+                    LogCore.Warning($"节点名称重复:{crtSN.NodeID}");
                 }
                 else
                 {
-                    _dic.Add(crtSN.NodeName, crtSN);
+                    _dic.Add(crtSN.NodeID, crtSN);
                 }
 
                 foreach (var item in crtSN.ChildNode)
@@ -287,22 +303,30 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
             }
         }
 
-        private void SwitchNodeCheck(LogicNode node)
+        /// <summary>
+        /// 正式执行节点切换
+        /// </summary>
+        /// <param name="targetNode"></param>
+        private void DoSwitchNode(LogicNode targetNode)
         {
-            if (node != CrtSelectNode)
+            if (string.IsNullOrEmpty(targetNode.AutoJump) == false)
             {
-                LogCore.Debug("切换到节点:" + node.NodeName);
-                CrtSelectNode = node;
+                targetNode = _dic[targetNode.AutoJump];
+            }
+            if (targetNode != CrtSelectNode)
+            {
+                LogCore.Debug("切换到节点:" + targetNode.NodeID);
+
+                PublishWithID((int)LogicNodeEnum.NodeExit, CrtSelectNode.NodeID);
+
+                CrtSelectNode = targetNode;
+
+                PublishWithID((int)LogicNodeEnum.NodeEnter, targetNode.NodeID);
+
                 Publish((int)LogicNodeEnum.SwitchNode, CrtSelectNode);
-                if (OnSwitchEnd != null)
-                {
-                    //使用临时变量存储并清除原始数据后再执行，防止出现循环调用
-                    Action onSwitchEnd = OnSwitchEnd;
-                    OnSwitchEnd = null;
-                    onSwitchEnd?.Invoke();
-                }
             }
         }
+
         #endregion
     }
 
@@ -311,13 +335,14 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
     /// </summary>
     public class LogicNode
     {
-        public string NodeName;
+        public string NodeID;
+        public string AutoJump; //自动跳转节点
         public LogicNode ParentNode;
         public LogicNode[] ChildNode;
 
-        public LogicNode(string nodeName, LogicNode parentNode, LogicNode[] childNode)
+        public LogicNode(string nodeID, LogicNode parentNode, LogicNode[] childNode)
         {
-            NodeName = nodeName;
+            NodeID = nodeID;
             ParentNode = parentNode;
             ChildNode = childNode;
         }

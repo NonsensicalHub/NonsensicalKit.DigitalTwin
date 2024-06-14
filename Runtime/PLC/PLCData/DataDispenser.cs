@@ -78,26 +78,26 @@ namespace NonsensicalKit.DigitalTwin.PLC
                     continue;
                 }
                 Dictionary<string, PointDataBuffer> pointIDs = new Dictionary<string, PointDataBuffer>();
-                foreach (var item in config.pointIDs)
+                foreach (var point in config.pointConfigs)
                 {
-                    if (pointIDs.ContainsKey(item))
+                    if (pointIDs.ContainsKey(point.pointID))
                     {
-                        errorID.Add(partID + "部件中重复的点位ID" + item);
+                        errorID.Add(partID + "部件中重复的点位ID" + point);
                         continue;
                     }
-                    pointIDs.Add(item, new PointDataBuffer(null, false));
+                    pointIDs.Add(point.pointID, new PointDataBuffer(null, false));
                 }
                 partPointsPair.Add(partID, pointIDs);
 
-                foreach (var pointID in config.pointIDs)
+                foreach (var point in config.pointConfigs)
                 {
-                    if (pointPartsPair.ContainsKey(pointID))
+                    if (pointPartsPair.ContainsKey(point.pointID))
                     {
-                        pointPartsPair[pointID].Add(partID);
+                        pointPartsPair[point.pointID].Add(partID);
                     }
                     else
                     {
-                        pointPartsPair.Add(pointID, new List<string>() { partID });
+                        pointPartsPair.Add(point.pointID, new List<string>() { partID });
                     }
                 }
             }

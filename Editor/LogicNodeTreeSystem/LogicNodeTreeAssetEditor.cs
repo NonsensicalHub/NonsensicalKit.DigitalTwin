@@ -87,7 +87,7 @@ namespace NonsensicalKit.DigitalTwin.Editor.LogicNodeTreeSystem
 
         private string GetHeaderString(LogicNodeData node)
         {
-            return node.NodeName;
+            return node.NodeID;
         }
 
         private void DrawElement(Rect rect, LogicNodeData node)
@@ -95,9 +95,9 @@ namespace NonsensicalKit.DigitalTwin.Editor.LogicNodeTreeSystem
             float width = rect.width * 0.5f;
             float height = (rect.height - 2) * 0.5f;
             Rect newRect = new Rect(rect.x, rect.y, width, height);
-            GUI.Label(newRect, "NodeName");
+            GUI.Label(newRect, "NodeID");
             newRect.x += width;
-            node.NodeName = GUI.TextField(newRect, node.NodeName);
+            node.NodeID = GUI.TextField(newRect, node.NodeID);
             newRect.y += height + 2;
             newRect.x -= width;
         }

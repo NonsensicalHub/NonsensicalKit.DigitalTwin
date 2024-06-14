@@ -27,7 +27,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
             List<PLCPointInfo> v = new List<PLCPointInfo>();
             for (int i = 0; i < m_ControlTargets.Length; i++)
             {
-                v.Add(new PLCPointInfo("传感" + i, PLCDataType.Bit, false));
+                v.Add(new PLCPointInfo("传感" + i, PLCDataType.Bool, false));
             }
             return new PLCPartInfo("多传感显示部件", m_partID, v);
         }

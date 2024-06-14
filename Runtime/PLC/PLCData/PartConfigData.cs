@@ -22,7 +22,17 @@ namespace NonsensicalKit.DigitalTwin.PLC
     [System.Serializable]
     public class PartConfig : ConfigData
     {
+        public string partName;
         public string partID;
-        public List<string> pointIDs;
+        public List<PointConfig> pointConfigs;
+    }
+
+    [System.Serializable]
+    public class PointConfig
+    {
+        public string pointName;
+        public string pointID;
+        public string pointUnit;
+        public PLCDataType dataType=PLCDataType.String;
     }
 }

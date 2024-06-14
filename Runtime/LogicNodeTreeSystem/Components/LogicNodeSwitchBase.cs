@@ -19,16 +19,17 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
             ServiceCore.SafeGet<LogicNodeManager>(OnGetService);
             if (TryGetComponent<LogicNodeMono>(out _nodeMono))
             {
-                _nodeMono.OnSwitch.AddListener(OnSwitch);
+                _nodeMono.OnNodeEnter.AddListener(OnEnter);
+                _nodeMono.OnNodeExit.AddListener(OnExit);
             }
         }
 
-
-        private void OnGetService(LogicNodeManager manager)
+        protected virtual void OnGetService(LogicNodeManager manager)
         {
             _manager = manager;
         }
 
-        protected abstract void OnSwitch(LogicNodeState lns);
+        protected abstract void OnEnter();
+        protected abstract void OnExit();
     }
 }

@@ -8,7 +8,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
     public class JointsPartMotion : PartMotionBase
     {
         public JointSetting[] m_Joints;
-        public bool m_UseLong;
+        public bool m_UseInt;
 
         protected long _lastTicks;
         protected JointController _controller;
@@ -45,7 +45,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
             }
             _lastTicks = part[0].ticks;
             float[] values = new float[m_Joints.Length];
-            if (m_UseLong)
+            if (m_UseInt)
             {
                 for (int i = 0; i < values.Length; i++)
                 {
@@ -64,10 +64,10 @@ namespace NonsensicalKit.DigitalTwin.PLC
 
         protected override PLCPartInfo GetInfo()
         {
-            PLCDataType type = PLCDataType.Real;
-            if (m_UseLong)
+            PLCDataType type = PLCDataType.Float;
+            if (m_UseInt)
             {
-                type = PLCDataType.DInt;
+                type = PLCDataType.Int;
             }
             List<PLCPointInfo> v = new List<PLCPointInfo>();
             for (int i = 0; i < m_Joints.Length; i++)

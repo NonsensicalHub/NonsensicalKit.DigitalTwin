@@ -151,7 +151,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
         {
             return new PLCPartInfo("碰撞夹具", m_partID,
                 new List<PLCPointInfo>() {
-                new PLCPointInfo("是否加紧",PLCDataType.Bit,false)
+                new PLCPointInfo("是否加紧",PLCDataType.Bool,false)
                 });
         }
     }

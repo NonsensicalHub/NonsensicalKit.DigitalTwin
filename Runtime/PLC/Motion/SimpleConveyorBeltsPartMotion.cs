@@ -89,7 +89,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
         {
             return new PLCPartInfo("单方向传送带部件", m_partID,
                 new List<PLCPointInfo>() {
-                new PLCPointInfo("速度",PLCDataType.Real,false),
+                new PLCPointInfo("速度",PLCDataType.Float,false),
                 });
         }
     }

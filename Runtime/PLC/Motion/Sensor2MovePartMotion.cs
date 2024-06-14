@@ -86,8 +86,8 @@ namespace NonsensicalKit.DigitalTwin.PLC
         {
             return new PLCPartInfo("双传感移动部件", m_partID,
                 new List<PLCPointInfo>() {
-                new PLCPointInfo("传感1",PLCDataType.Bit,false),
-                new PLCPointInfo("传感2",PLCDataType.Bit,false),
+                new PLCPointInfo("传感1",PLCDataType.Bool,false),
+                new PLCPointInfo("传感2",PLCDataType.Bool,false),
                 });
         }
     }

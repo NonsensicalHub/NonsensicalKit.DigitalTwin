@@ -112,8 +112,8 @@ namespace NonsensicalKit.DigitalTwin.PLC
         {
             return new PLCPartInfo("碰撞双向传送带", m_partID,
                 new List<PLCPointInfo>() {
-                new PLCPointInfo("方向1速度",PLCDataType.Real,false),
-                new PLCPointInfo("方向2速度",PLCDataType.Real,false)
+                new PLCPointInfo("方向1速度",PLCDataType.Float,false),
+                new PLCPointInfo("方向2速度",PLCDataType.Float,false)
                 });
         }
     }

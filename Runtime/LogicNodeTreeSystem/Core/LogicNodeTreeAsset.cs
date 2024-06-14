@@ -1,6 +1,7 @@
 using NonsensicalKit.Core.Service.Config;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 {
@@ -80,7 +81,7 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
         {
             var serializedNode = new SerializableNode()
             {
-                NodeName = n.NodeName,
+                NodeID = n.NodeID,
                 ChildCount = n.Children.Count,
             };
 
@@ -94,7 +95,7 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
             var serializedNode = SerializedNodes[index];
             LogicNodeData newNode = new LogicNodeData()
             {
-                NodeName = serializedNode.NodeName,
+                NodeID = serializedNode.NodeID,
                 Children = new List<LogicNodeData>()
             };
 
@@ -112,16 +113,17 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 
     public class LogicNodeData : TreeData<LogicNodeData>
     {
-        public string NodeName;     //节点名，ID
+        [FormerlySerializedAs("NodeName")]
+        public string NodeID;     //节点名，ID
         public LogicNodeData Parent;
         public List<LogicNodeData> Children = new List<LogicNodeData>();
 
         public LogicNodeData()
         {
         }
-        public LogicNodeData(string nodeName)
+        public LogicNodeData(string nodeID)
         {
-            this.NodeName = nodeName;
+            this.NodeID = nodeID;
         }
 
         public override List<LogicNodeData> GetChildren()
@@ -134,8 +136,8 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
     [System.Serializable]
     public struct SerializableNode
     {
-        public string NodeName;     //节点名，ID
-        public string AliasName;    //别名
+        [FormerlySerializedAs("NodeName")]
+        public string NodeID;     //节点名，ID
         public int ChildCount;
     }
 

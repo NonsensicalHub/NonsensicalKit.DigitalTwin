@@ -25,7 +25,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
         protected override PLCPartInfo GetInfo()
         {
             List<PLCPointInfo> v = new List<PLCPointInfo>();
-            v.Add(new PLCPointInfo("引擎值", PLCDataType.Real, false));
+            v.Add(new PLCPointInfo("引擎值", PLCDataType.Float, false));
             return new PLCPartInfo("引擎", m_partID, v);
         }
     }

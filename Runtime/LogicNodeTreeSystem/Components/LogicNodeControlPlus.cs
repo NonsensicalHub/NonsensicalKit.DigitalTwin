@@ -2,6 +2,7 @@ using NonsensicalKit.Core;
 using NonsensicalKit.Core.Service;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SocialPlatforms;
 
 namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 {
@@ -10,8 +11,8 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
     /// </summary>
     public class LogicNodeControlPlus : NonsensicalMono
     {
-        [SerializeField] private ControlType m_controlType;
-        [SerializeField] private string m_nodeName;
+        [SerializeField] private LogicNodeCheckType m_checkType;
+        [SerializeField] private string m_nodeID;
         [SerializeField] private List<string> m_spOn;
         [SerializeField] private List<string> m_spOff;
 
@@ -61,35 +62,17 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 
         private void OnSwitchNode(LogicNode node)
         {
-            if (m_spOn.Contains(node.NodeName))
+            if (m_spOn.Contains(node.NodeID))
             {
                 SetState(true);
                 return;
             }
-            if (m_spOff.Contains(node.NodeName))
+            if (m_spOff.Contains(node.NodeID))
             {
                 SetState(false);
                 return;
             }
-
-            switch (m_controlType)
-            {
-                case ControlType.SelfSelect:
-                    SetState(node.NodeName == m_nodeName);
-                    break;
-                case ControlType.SelfUnselect:
-                    SetState(node.NodeName != m_nodeName);
-                    break;
-                case ControlType.ParentSelect:
-                    SetState(_manager.CheckStateWithParent(m_nodeName));
-                    break;
-                case ControlType.ChildSelect:
-                    SetState(_manager.CheckStateWithChild(m_nodeName));
-                    break;
-                case ControlType.ParentOrChildSelect:
-                    SetState(_manager.CheckStateWithParent(m_nodeName) || _manager.CheckStateWithChild(m_nodeName));
-                    break;
-            }
+            SetState(_manager.CheckState(m_nodeID, m_checkType));
         }
 
         private void SetState(bool newState)
