@@ -1,8 +1,7 @@
 using NonsensicalKit.Core;
-using NonsensicalKit.DigitalTwin;
 using UnityEngine;
 
-namespace PLCKit
+namespace NonsensicalKit.DigitalTwin.Samples
 {
     public class JointVirtualInput : MonoBehaviour
     {

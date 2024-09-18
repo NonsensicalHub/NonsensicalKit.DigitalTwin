@@ -9,12 +9,13 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
 {
     public class LogicNodeMono : NonsensicalMono
     {
-        [SerializeField] private string m_nodeName;
+        [FormerlySerializedAs("m_nodeName")]
+        [SerializeField] private string m_nodeID;
 
         [SerializeField] private UnityEvent m_NodeEnter = new UnityEvent();
         [SerializeField] private UnityEvent m_NodeExit = new UnityEvent();
 
-        public string NodeName => m_nodeName;
+        public string NodeID => m_nodeID;
 
         public UnityEvent OnNodeEnter
         {
@@ -37,9 +38,16 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
         private void OnGetService(LogicNodeManager service)
         {
             _manager = service;
-
-            Subscribe((int)LogicNodeEnum.NodeEnter, OnSwitchEnter);
-            Subscribe((int)LogicNodeEnum.NodeExit, OnSwitchExit);
+            if (service.CrtSelectNode.NodeID==NodeID)
+            {
+                OnSwitchEnter();
+            }
+            else
+            {
+                OnSwitchExit();
+            }
+            Subscribe((int)LogicNodeEnum.NodeEnter, m_nodeID, OnSwitchEnter);
+            Subscribe((int)LogicNodeEnum.NodeExit, m_nodeID, OnSwitchExit);
 
         }
 
@@ -54,10 +62,10 @@ namespace NonsensicalKit.DigitalTwin.LogicNodeTreeSystem
         }
 
 #if UNITY_EDITOR
-        [ContextMenu("设置节点名称为物体名称")]
+        [ContextMenu("设置节点ID为物体名称")]
         private void SetGameObjectNameToNodeName()
         {
-            m_nodeName = gameObject.name;
+            m_nodeID = gameObject.name;
         }
 #endif
     }

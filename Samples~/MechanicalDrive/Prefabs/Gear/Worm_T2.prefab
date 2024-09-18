@@ -8654,7 +8654,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4000012534203644}
-  - component: {fileID: 114000010999623822}
+  - component: {fileID: 2770031930968485158}
   m_Layer: 0
   m_Name: Worm_T2
   m_TagString: Untagged
@@ -8688,7 +8688,7 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &114000010999623822
+--- !u!114 &2770031930968485158
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8697,10 +8697,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 1000013307403624}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f99db0dd2ea3cfe48bffe4ea333e8120, type: 3}
+  m_Script: {fileID: 11500000, guid: ca169692c30924145b51824fe14069f6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  radius: 0.18
+  m_gearRadius: 0.1
+  m_coaxialObjects: []
+  m_engageObjects: []
+  m_rotateAxis: {x: 0, y: 0, z: 1}
 --- !u!1 &1000013319029320
 GameObject:
   m_ObjectHideFlags: 0
