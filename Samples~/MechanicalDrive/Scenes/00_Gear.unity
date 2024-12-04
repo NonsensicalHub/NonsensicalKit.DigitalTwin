@@ -38,7 +38,6 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.18028378, g: 0.22571412, b: 0.30692285, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -6224,10 +6223,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 20708adab14ed374b8a0a0e737867b7f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  worm: {fileID: 4000011881455047}
-  threads: 6
-  gear: {fileID: 4000012961127487}
-  teeth: 36
+  m_worm: {fileID: 4000011881455047}
+  m_threads: 6
+  m_gear: {fileID: 4000012961127487}
+  m_teeth: 36
 --- !u!4 &4000010927560702
 Transform:
   m_ObjectHideFlags: 0

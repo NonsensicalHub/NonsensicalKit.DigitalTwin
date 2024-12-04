@@ -14,19 +14,18 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         public float AmplitudeRadius => m_amplitudeRadius;
         private Vector3 _startPosition;
 
-        protected float _currentOffset;
+        private float _currentOffset;
 
         /// <summary>
         /// Vibration direction.
         /// </summary>
-        protected int _direction = 1;
+        private int _direction = 1;
 
         private Vector3 _realAxis;
 
-        protected virtual void Awake()
+        private void Awake()
         {
             _startPosition = transform.localPosition;
-
 
             _realAxis = transform.localRotation * m_moveAxis;
         }
@@ -51,6 +50,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
                 _direction *= -1;
                 _currentOffset = m_amplitudeRadius - (_currentOffset - m_amplitudeRadius);
             }
+
             transform.localPosition = _startPosition + _realAxis * _currentOffset;
         }
     }

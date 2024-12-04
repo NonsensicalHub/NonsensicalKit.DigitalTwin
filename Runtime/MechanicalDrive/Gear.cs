@@ -8,10 +8,12 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         /// 齿轮半径
         /// </summary>
         [SerializeField] private float m_gearRadius = 1f;
+
         /// <summary>
         /// 同轴对象，角速度相同
         /// </summary>
         [SerializeField] private Mechanism[] m_coaxialObjects;
+
         /// <summary>
         /// 啮合对象，线速度相同
         /// </summary>
@@ -45,6 +47,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
             {
                 item.Drive(power * Mathf.Rad2Deg / m_gearRadius, DriveType.Angular);
             }
+
             foreach (var item in m_engageObjects)
             {
                 item.Drive(power, DriveType.Linear);
@@ -59,6 +62,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
             {
                 item.Drive(power, DriveType.Angular);
             }
+
             foreach (var item in m_engageObjects)
             {
                 item.Drive(power * Mathf.Deg2Rad * m_gearRadius, DriveType.Linear);

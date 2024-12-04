@@ -38,7 +38,6 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.18028378, g: 0.22571412, b: 0.30692285, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -1539,7 +1538,7 @@ MonoBehaviour:
   - {fileID: 33000012277243506}
   - {fileID: 4000013223302630}
   - {fileID: 4000011958721982}
-  m_PowerRadius: 1
+  m_powerRadius: 1
 --- !u!4 &4000010687737684
 Transform:
   m_ObjectHideFlags: 0
@@ -1604,7 +1603,7 @@ MonoBehaviour:
   - {fileID: 33000012663607709}
   - {fileID: 4000012807576073}
   - {fileID: 4000012344103505}
-  m_PowerRadius: 1
+  m_powerRadius: 1
 --- !u!4 &4000011110633481
 Transform:
   m_ObjectHideFlags: 0
@@ -1671,7 +1670,7 @@ MonoBehaviour:
   - {fileID: 114000010826316000}
   - {fileID: 4000012060439768}
   - {fileID: 33000012443973404}
-  m_PowerRadius: 1
+  m_powerRadius: 1
 --- !u!4 &4000011374846137
 Transform:
   m_ObjectHideFlags: 0
@@ -3456,6 +3455,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_ratio: -2
+  m_isXDir: 0
+  m_loader: {fileID: 0}
 --- !u!33 &33000012443973403
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -3491,6 +3492,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_ratio: -2
+  m_isXDir: 0
+  m_loader: {fileID: 0}
 --- !u!33 &33000012663607708
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -3512,6 +3515,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_ratio: -2
+  m_isXDir: 0
+  m_loader: {fileID: 0}
 --- !u!33 &33000013045380359
 MeshFilter:
   m_ObjectHideFlags: 0

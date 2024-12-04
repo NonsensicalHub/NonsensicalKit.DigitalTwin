@@ -8,6 +8,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
     {
         [SerializeField] private float m_ratio = 1;
         [SerializeField] private bool m_isXDir;
+        [SerializeField] private BeltLoader m_loader;
 
         protected Renderer Renderer;
 
@@ -24,6 +25,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
                 return;
             }
 
+            m_loader?.Move(power * m_ratio);
             if (m_isXDir)
             {
                 Renderer.material.mainTextureOffset += new Vector2(power * m_ratio, 0);

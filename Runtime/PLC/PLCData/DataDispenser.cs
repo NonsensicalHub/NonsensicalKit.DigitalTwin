@@ -50,7 +50,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
             Subscribe<IEnumerable<PartConfig>>("partConfigInit", Init);
             Subscribe<string, Action<List<PLCPoint>>>("addPartListener", AddPartListener);
             Subscribe<string, Action<List<PLCPoint>>>("removePartListener", RemovePartListener);
-            Subscribe<IEnumerable<PLCPoint>>("receivePoints", ReceivePoints);
+            Subscribe<IEnumerable<PLCPoint>>("ReceivePoints", ReceivePoints);
             Subscribe<PLCPoint>("receivePoint", ReceivePoint);
             IsReady = true;
             InitCompleted?.Invoke();

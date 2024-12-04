@@ -1,7 +1,7 @@
+using UnityEngine;
+
 namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 {
-    using UnityEngine;
-
     public class RollerChain : Chain
     {
         [SerializeField] private GameObject m_rollerPrefab;
@@ -9,13 +9,11 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         public override void CreateNodes()
         {
             m_nodes = new ChainNode[Count];
-            bool replace = false;
+            bool flag = false;
             for (int i = 0; i < Count; i++)
             {
                 //Alternate prefab.
-                var prefab = NodePrefab;
-                if (replace)
-                    prefab = m_rollerPrefab;
+                var prefab = flag ? NodePrefab : m_rollerPrefab;
 
                 //Create node.
                 var nodeClone = (GameObject)Instantiate(prefab, NodeRoot);
@@ -26,7 +24,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
                 m_nodes[i].ID = i;
 
                 //Alternate replace.
-                replace = !replace;
+                flag = !flag;
             }
         }
     }

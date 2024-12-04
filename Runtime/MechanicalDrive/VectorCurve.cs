@@ -4,66 +4,50 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 {
     public struct VectorKeyframe
     {
-        #region Property and Field
-        public float time;
-        public Vector3 value;
-        #endregion
+        public float Time;
+        public Vector3 Value;
 
-        #region Public Method
         public VectorKeyframe(float time, Vector3 value)
         {
-            this.time = time;
-            this.value = value;
+            this.Time = time;
+            this.Value = value;
         }
-        #endregion
     }
 
     public class VectorAnimationCurve
     {
         #region Property and Field
-        public VectorKeyframe this[int index]
-        {
-            get
-            {
-                return new VectorKeyframe(xCurve[index].time, new Vector3(xCurve[index].value, yCurve[index].value, zCurve[index].value));
-            }
-        }
+        public VectorKeyframe this[int index] => new(_xCurve[index].time, new Vector3(_xCurve[index].value, _yCurve[index].value, _zCurve[index].value));
 
         /// <summary>
         /// Keyframe count.
         /// </summary>
-        public int length { get { return xCurve.length; } }
+        public int Length => _xCurve.length;
 
         /// <summary>
         /// The behaviour of the animation after the last keyframe.
         /// </summary>
-        public WrapMode postWrapMode
+        public WrapMode PostWrapMode
         {
-            set { xCurve.postWrapMode = yCurve.postWrapMode = zCurve.postWrapMode = value; }
-            get { return xCurve.postWrapMode; }
+            set => _xCurve.postWrapMode = _yCurve.postWrapMode = _zCurve.postWrapMode = value;
+            get => _xCurve.postWrapMode;
         }
 
         /// <summary>
         /// The behaviour of the animation before the first keyframe.
         /// </summary>
-        public WrapMode preWrapMode
+        public WrapMode PreWrapMode
         {
-            set { xCurve.preWrapMode = yCurve.preWrapMode = zCurve.preWrapMode = value; }
-            get { return xCurve.preWrapMode; }
+            set => _xCurve.preWrapMode = _yCurve.preWrapMode = _zCurve.preWrapMode = value;
+            get => _xCurve.preWrapMode;
         }
 
-        protected AnimationCurve xCurve;
-        protected AnimationCurve yCurve;
-        protected AnimationCurve zCurve;
+        private readonly AnimationCurve _xCurve = new();
+        private readonly AnimationCurve _yCurve = new();
+        private readonly AnimationCurve _zCurve = new();
         #endregion
 
         #region Public Method
-        public VectorAnimationCurve()
-        {
-            xCurve = new AnimationCurve();
-            yCurve = new AnimationCurve();
-            zCurve = new AnimationCurve();
-        }
 
         /// <summary>
         /// Add a new key to the curve.
@@ -72,9 +56,9 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         /// <returns>The index of the added key, or -1 if the key could not be added.</returns>
         public int AddKey(VectorKeyframe key)
         {
-            xCurve.AddKey(key.time, key.value.x);
-            yCurve.AddKey(key.time, key.value.y);
-            return zCurve.AddKey(key.time, key.value.z);
+            _xCurve.AddKey(key.Time, key.Value.x);
+            _yCurve.AddKey(key.Time, key.Value.y);
+            return _zCurve.AddKey(key.Time, key.Value.z);
         }
 
         /// <summary>
@@ -85,9 +69,9 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         /// <returns>The index of the added key, or -1 if the key could not be added.</returns>
         public int AddKey(float time, Vector3 value)
         {
-            xCurve.AddKey(time, value.x);
-            yCurve.AddKey(time, value.y);
-            return zCurve.AddKey(time, value.z);
+            _xCurve.AddKey(time, value.x);
+            _yCurve.AddKey(time, value.y);
+            return _zCurve.AddKey(time, value.z);
         }
 
         /// <summary>
@@ -97,7 +81,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         /// <returns>The value of the curve, at the point in time specified.</returns>
         public Vector3 Evaluate(float time)
         {
-            return new Vector3(xCurve.Evaluate(time), yCurve.Evaluate(time), zCurve.Evaluate(time));
+            return new Vector3(_xCurve.Evaluate(time), _yCurve.Evaluate(time), _zCurve.Evaluate(time));
         }
 
         /// <summary>
@@ -106,9 +90,9 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         /// <param name="index">The index of the key to remove.</param>
         public void RemoveKey(int index)
         {
-            xCurve.RemoveKey(index);
-            yCurve.RemoveKey(index);
-            zCurve.RemoveKey(index);
+            _xCurve.RemoveKey(index);
+            _yCurve.RemoveKey(index);
+            _zCurve.RemoveKey(index);
         }
 
         /// <summary>
@@ -118,9 +102,9 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         /// <param name="weight">The smoothing weight to apply to the keyframe's tangents.</param>
         public void SmoothTangents(int index, float weight)
         {
-            xCurve.SmoothTangents(index, weight);
-            yCurve.SmoothTangents(index, weight);
-            zCurve.SmoothTangents(index, weight);
+            _xCurve.SmoothTangents(index, weight);
+            _yCurve.SmoothTangents(index, weight);
+            _zCurve.SmoothTangents(index, weight);
         }
 
         /// <summary>
@@ -129,7 +113,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         /// <param name="weight">The smoothing weight to apply to the keyframe's tangents.</param>
         public void SmoothTangents(float weight)
         {
-            for (int i = 0; i < length; i++)
+            for (int i = 0; i < Length; i++)
             {
                 SmoothTangents(i, weight);
             }

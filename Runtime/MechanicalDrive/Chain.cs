@@ -4,27 +4,27 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 {
     public class Chain : Mechanism
     {
-        [SerializeField] protected Transform m_anchorRoot;
+        [SerializeField] private Transform m_anchorRoot;
 
-        [SerializeField] protected Transform m_nodeRoot;
+        [SerializeField] private Transform m_nodeRoot;
 
-        [SerializeField] protected GameObject m_nodePrefab;
+        [SerializeField] private GameObject m_nodePrefab;
 
-        [SerializeField] protected int m_count = 50;
+        [SerializeField] private int m_count = 50;
 
-        [SerializeField] protected float m_space = 0.1f;
+        [SerializeField] private float m_space = 0.1f;
 
-        [SerializeField] protected bool m_alwaysUpdate;
+        [SerializeField] private bool m_alwaysUpdate;
         [SerializeField] protected ChainNode[] m_nodes;
 
-        public int Count { get { return m_count; } set { m_count = value; } }
-        public VectorAnimationCurve Curve { get; protected set; }
+        public int Count { get => m_count; set => m_count = value; }
+        public VectorAnimationCurve Curve { get; private set; }
         public Transform AnchorRoot => m_anchorRoot;
         public Transform NodeRoot => m_nodeRoot;
         public GameObject NodePrefab => m_nodePrefab;
         public float Space => m_space;
 
-        protected float _timer = 0;
+        private float _timer = 0;
 
         protected virtual void Awake()
         {
@@ -34,11 +34,11 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         /// <summary>
         /// Create the curve base on anchors.
         /// </summary>
-        public virtual void CreateCurve()
+        public void CreateCurve()
         {
             Curve = new VectorAnimationCurve();
 
-            Curve.preWrapMode = Curve.postWrapMode = WrapMode.Loop;
+            Curve.PreWrapMode = Curve.PostWrapMode = WrapMode.Loop;
 
             //Add frame keys to curve.
             float time = 0;
@@ -80,13 +80,15 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
                 Debug.Log("此机械结构不支持角运动");
                 return;
             }
+
             if (m_alwaysUpdate)
             {
                 CreateCurve();
-                var maxTime = Curve[Curve.length - 1].time;
+                var maxTime = Curve[Curve.Length - 1].Time;
                 if (Mathf.Abs(_timer) >= maxTime)
                     _timer -= maxTime;
             }
+
             _timer += power;
             foreach (var node in m_nodes)
             {

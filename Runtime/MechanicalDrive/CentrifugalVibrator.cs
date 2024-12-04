@@ -7,11 +7,11 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         [SerializeField] private float m_amplitudeRadius = 0.1f;
         [SerializeField] private float m_speed = 1f;
 
-        public Vector3 StartPosition { protected set; get; }
+        public Vector3 StartPosition { private set; get; }
         public float AmplitudeRadius => m_amplitudeRadius;
-        protected float _currentAngle;
+        private float _currentAngle;
 
-        protected virtual void Awake()
+        private void Awake()
         {
             StartPosition = transform.localPosition;
         }
@@ -29,17 +29,17 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
                 default:
                     break;
             }
+
             var direction = Quaternion.AngleAxis(_currentAngle, transform.forward) * transform.right;
             transform.localPosition = StartPosition + GetLocalDirection(direction) * m_amplitudeRadius;
         }
 
-        protected Vector3 GetLocalDirection(Vector3 direction)
+        private Vector3 GetLocalDirection(Vector3 direction)
         {
             if (transform.parent)
                 return transform.parent.InverseTransformVector(direction);
             else
                 return direction;
         }
-
     }
 }

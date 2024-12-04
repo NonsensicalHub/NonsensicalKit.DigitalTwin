@@ -51,7 +51,7 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
 
                 if (script.AnchorRoot.childCount >= 2)
                 {
-                    var maxTimer = script.Curve[script.Curve.length - 1].time;
+                    var maxTimer = script.Curve[script.Curve.Length - 1].Time;
                     for (float timer = 0; timer < maxTimer; timer += nodeSize)
                     {
                         Handles.DrawLine(script.AnchorRoot.TransformPoint(script.Curve.Evaluate(timer)),
@@ -107,7 +107,7 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
 
         protected void EstimateCount()
         {
-            var estimate = script.Curve[script.Curve.length - 1].time / script.Space;
+            var estimate = script.Curve[script.Curve.Length - 1].Time / script.Space;
             script.Count = (int)Math.Round(estimate, MidpointRounding.AwayFromZero);
 
             UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
