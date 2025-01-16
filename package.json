@@ -18,6 +18,11 @@
       "displayName": "JointController",
       "description": "\u591a\u8f74\u8fd0\u52a8\u63a7\u5236",
       "path": "Samples~/JointController"
+    },
+    {
+      "displayName": "UniTaskNetWorkRequest",
+      "description": "UniTask网络请求",
+      "path": "Samples~/UniTaskNetWorkRequest"
     }
   ]
 }
