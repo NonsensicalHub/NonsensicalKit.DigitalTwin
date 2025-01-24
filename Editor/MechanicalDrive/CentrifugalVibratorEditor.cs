@@ -9,33 +9,36 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
     public class CentrifugalVibratorEditor : EditorBase
     {
         #region Property and Field
-        protected CentrifugalVibrator script { get { return target as CentrifugalVibrator; } }
-        protected Vector3 startPosition
+
+        protected CentrifugalVibrator Script => target as CentrifugalVibrator;
+
+        protected Vector3 StartPosition
         {
             get
             {
                 if (Application.isPlaying)
                 {
-                    if (script.transform.parent)
-                        return script.transform.parent.TransformPoint(script.StartPosition);
+                    if (Script.transform.parent)
+                        return Script.transform.parent.TransformPoint(Script.StartPosition);
                     else
-                        return script.StartPosition;
+                        return Script.StartPosition;
                 }
                 else
-                    return script.transform.position;
+                    return Script.transform.position;
             }
         }
+
         #endregion
 
         protected void OnSceneGUI()
         {
-            Handles.color = blue;
-            Handles.SphereHandleCap(0, startPosition, Quaternion.identity, nodeSize, EventType.Repaint);
-            Handles.SphereHandleCap(0, script.transform.position, Quaternion.identity, nodeSize, EventType.Repaint);
-            Handles.CircleHandleCap(0, startPosition, script.transform.rotation, script.AmplitudeRadius, EventType.Repaint);
+            Handles.color = Blue;
+            Handles.SphereHandleCap(0, StartPosition, Quaternion.identity, NodeSize, EventType.Repaint);
+            Handles.SphereHandleCap(0, Script.transform.position, Quaternion.identity, NodeSize, EventType.Repaint);
+            Handles.CircleHandleCap(0, StartPosition, Script.transform.rotation, Script.AmplitudeRadius, EventType.Repaint);
 
-            DrawArrow(startPosition, script.transform.position, nodeSize, string.Empty, blue);
-            DrawArrow(startPosition, script.transform.forward, arrowLength, nodeSize, "Axis", blue);
+            DrawArrow(StartPosition, Script.transform.position, NodeSize, string.Empty, Blue);
+            DrawArrow(StartPosition, Script.transform.forward, ArrowLength, NodeSize, "Axis", Blue);
         }
     }
 }

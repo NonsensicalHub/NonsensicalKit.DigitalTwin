@@ -34,8 +34,6 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
                 case DriveType.Angular:
                     AngularDrive(power);
                     break;
-                default:
-                    break;
             }
         }
 

@@ -4,48 +4,50 @@ namespace NonsensicalKit.DigitalTwin.PLC
 {
     public class HalfPhysicalMaterials : MonoBehaviour
     {
-        private bool isRunning;
+        private bool _isRunning;
 
-        private Rigidbody rb;
+        private Rigidbody _rb;
 
-        private int moveCount;
-        private Vector3 offset;
+        private int _moveCount;
+        private Vector3 _offset;
 
-        private bool isFixed;
+        private bool _isFixed;
 
         private void Awake()
         {
-            if (TryGetComponent<Rigidbody>(out rb) == false)
+            if (TryGetComponent(out _rb) == false)
             {
-                rb = gameObject.AddComponent<Rigidbody>();
-                rb.useGravity = false;
-                rb.isKinematic = true;
+                _rb = gameObject.AddComponent<Rigidbody>();
+                _rb.useGravity = false;
+                _rb.isKinematic = true;
             }
+
             if (GetComponent<Collider>() == null)
             {
                 gameObject.AddComponent<BoxCollider>();
             }
-            isRunning = true;
+
+            _isRunning = true;
         }
 
         private void Start()
         {
-            rb.MovePosition(transform.position);
+            _rb.MovePosition(transform.position);
         }
 
         private void Update()
         {
-            if (!isFixed && moveCount > 0)
+            if (!_isFixed && _moveCount > 0)
             {
-                transform.position += offset / moveCount * Time.deltaTime;
-                moveCount = 0;
-                offset = Vector3.zero;
+                transform.position += _offset / _moveCount * Time.deltaTime;
+                _moveCount = 0;
+                _offset = Vector3.zero;
             }
         }
 
         private void OnDestroy()
         {
-            isRunning = false;
+            _isRunning = false;
         }
 
         public void Init(Transform target)
@@ -56,18 +58,18 @@ namespace NonsensicalKit.DigitalTwin.PLC
 
         public void Fixed(bool isFixed)
         {
-            this.isFixed = isFixed;
+            this._isFixed = isFixed;
         }
 
         public void Move(Vector3 offset)
         {
-            moveCount++;
-            this.offset += offset;
+            _moveCount++;
+            this._offset += offset;
         }
 
         protected virtual void OnCollisionEnter(Collision collision)
         {
-            if (isRunning)
+            if (_isRunning)
             {
                 if (collision.transform.TryGetComponent<HalfPhysicalCollisionArea>(out var hpc))
                 {
@@ -75,9 +77,10 @@ namespace NonsensicalKit.DigitalTwin.PLC
                 }
             }
         }
+
         protected virtual void OnCollisionExit(Collision collision)
         {
-            if (isRunning)
+            if (_isRunning)
             {
                 if (collision.transform.TryGetComponent<HalfPhysicalCollisionArea>(out var hpc))
                 {

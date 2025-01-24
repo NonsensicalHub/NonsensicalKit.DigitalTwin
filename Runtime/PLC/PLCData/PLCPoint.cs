@@ -1,3 +1,4 @@
+using System;
 using Newtonsoft.Json;
 
 namespace NonsensicalKit.DigitalTwin.PLC
@@ -6,15 +7,18 @@ namespace NonsensicalKit.DigitalTwin.PLC
     {
         //0,1,false,true,False,True
         Bool = 0,
+
         //short,int,long
         Int = 1,
+
         //float,double
         Float = 2,
+
         //string
         String = 3,
     }
 
-    [System.Serializable]
+    [Serializable]
     public class PLCPoint
     {
         /// <summary>
@@ -22,26 +26,31 @@ namespace NonsensicalKit.DigitalTwin.PLC
         /// </summary>
         [JsonProperty("Name")]
         public string name;
+
         /// <summary>
         /// 点位id
         /// </summary>
         [JsonProperty("ID")]
         public string pointID;
+
         /// <summary>
         /// plc点位名称
         /// </summary>
         [JsonProperty("Point")]
         public string point;
+
         /// <summary>
         /// 采集数据的时间，单位为毫秒，C#的ticks需要除以10000
         /// </summary>
         [JsonProperty("Ticks")]
         public long ticks;
+
         /// <summary>
         /// 数据类型枚举
         /// </summary>
         [JsonProperty("Type")]
         public PLCDataType type;
+
         /// <summary>
         /// 值
         /// </summary>
@@ -49,9 +58,9 @@ namespace NonsensicalKit.DigitalTwin.PLC
         public string value;
 
         #region Constructor
+
         public PLCPoint()
         {
-
         }
 
         public PLCPoint(string name, string id, string point, long ticks, bool value)
@@ -133,13 +142,14 @@ namespace NonsensicalKit.DigitalTwin.PLC
             this.type = PLCDataType.String;
             this.value = value.ToString();
         }
+
         #endregion
     }
 
     public class PLCPart
     {
-        public string name;         //部件名称
-        public string partID;           //部件id
+        public string name; //部件名称
+        public string partID; //部件id
         public PLCPoint[] points;
     }
 }

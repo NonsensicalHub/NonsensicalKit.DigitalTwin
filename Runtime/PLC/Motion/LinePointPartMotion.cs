@@ -1,5 +1,5 @@
-using NonsensicalKit.Tools;
 using System.Collections.Generic;
+using NonsensicalKit.Tools;
 using UnityEngine;
 
 namespace NonsensicalKit.DigitalTwin.PLC
@@ -20,7 +20,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
         private bool _moving;
         private bool _nextCheck;
 
-        private Tweenner _tweenner;
+        private Tweener _tweener;
 
         protected override void Init()
         {
@@ -48,6 +48,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
                         m_Trays.gameObject.SetActive(true);
                         m_Trays.position = m_StopPos.position;
                     }
+
                     return;
                 }
 
@@ -58,10 +59,10 @@ namespace NonsensicalKit.DigitalTwin.PLC
                     if (_nextCheck)
                     {
                         m_Trays.gameObject.SetActive(false);
-                        if (_tweenner != null)
+                        if (_tweener != null)
                         {
-                            _tweenner.Abort();
-                            _tweenner = null;
+                            _tweener.Abort();
+                            _tweener = null;
                         }
                     }
                 }
@@ -76,12 +77,13 @@ namespace NonsensicalKit.DigitalTwin.PLC
                     }
                     else
                     {
-                        if (_tweenner != null)
+                        if (_tweener != null)
                         {
-                            _tweenner.Abort();
-                            _tweenner = null;
+                            _tweener.Abort();
+                            _tweener = null;
                         }
-                        _tweenner = m_Trays.DoMove(m_NextPos.position, m_MoveTime);
+
+                        _tweener = m_Trays.DoMove(m_NextPos.position, m_MoveTime);
                         _moving = true;
                     }
                 }
@@ -97,8 +99,10 @@ namespace NonsensicalKit.DigitalTwin.PLC
                         m_Trays.gameObject.SetActive(true);
                         m_Trays.position = m_StopPos.position;
                     }
+
                     return;
                 }
+
                 if (_check != bool.Parse(part[0].value))
                 {
                     _check = !_check;
@@ -109,12 +113,17 @@ namespace NonsensicalKit.DigitalTwin.PLC
                     }
                     else
                     {
-                        if (_tweenner != null)
+                        if (_tweener != null)
                         {
-                            _tweenner.Abort();
-                            _tweenner = null;
+                            _tweener.Abort();
+                            _tweener = null;
                         }
-                        _tweenner = m_Trays.DoMove(m_NextPos.position, m_MoveTime).OnComplete(() => { _tweenner = null; m_Trays.gameObject.SetActive(false); });
+
+                        _tweener = m_Trays.DoMove(m_NextPos.position, m_MoveTime).OnComplete(() =>
+                        {
+                            _tweener = null;
+                            m_Trays.gameObject.SetActive(false);
+                        });
                         _moving = true;
                     }
                 }
@@ -124,9 +133,10 @@ namespace NonsensicalKit.DigitalTwin.PLC
         protected override PLCPartInfo GetInfo()
         {
             return new PLCPartInfo("单层传送带停止点", m_partID,
-                new List<PLCPointInfo>() {
-                new PLCPointInfo("当前传感",PLCDataType.Bool,false),
-                new PLCPointInfo("下一点位传感",PLCDataType.Bool,false)
+                new List<PLCPointInfo>()
+                {
+                    new PLCPointInfo("当前传感", PLCDataType.Bool, false),
+                    new PLCPointInfo("下一点位传感", PLCDataType.Bool, false)
                 });
         }
     }

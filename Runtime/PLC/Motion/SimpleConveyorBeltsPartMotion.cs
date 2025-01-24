@@ -10,11 +10,11 @@ namespace NonsensicalKit.DigitalTwin.PLC
         /// </summary>
         public MoveDir m_DirType;
 
-        public float m_ConversionRate = 1;//转换率，当为1时，数据为0.1代表速度为0.1m/s
+        public float m_ConversionRate = 1; //转换率，当为1时，数据为0.1代表速度为0.1m/s
 
         public HalfPhysicalCollisionArea m_Area;
 
-        private List<HalfPhysicalMaterials> _materials = new List<HalfPhysicalMaterials>();
+        private readonly List<HalfPhysicalMaterials> _materials = new();
         private float _speed;
         private bool _isRunning;
 
@@ -44,12 +44,14 @@ namespace NonsensicalKit.DigitalTwin.PLC
                 rb.useGravity = false;
                 rb.isKinematic = true;
             }
+
             if (GetComponent<Collider>() == null)
             {
                 gameObject.AddComponent<BoxCollider>();
             }
-            m_Area.OnMaterialsEnter.AddListener((hpm) => _materials.Add(hpm));
-            m_Area.OnMaterialsExit.AddListener((hpm) => _materials.Remove(hpm));
+
+            m_Area.m_OnMaterialsEnter.AddListener((hpm) => _materials.Add(hpm));
+            m_Area.m_OnMaterialsExit.AddListener((hpm) => _materials.Remove(hpm));
             _isRunning = true;
         }
 
@@ -58,6 +60,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
             base.Dispose();
             _isRunning = false;
             _materials.Clear();
+            
         }
 
         protected override void OnReceiveData(List<PLCPoint> part)
@@ -85,11 +88,13 @@ namespace NonsensicalKit.DigitalTwin.PLC
                     return Vector3.zero;
             }
         }
+
         protected override PLCPartInfo GetInfo()
         {
             return new PLCPartInfo("单方向传送带部件", m_partID,
-                new List<PLCPointInfo>() {
-                new PLCPointInfo("速度",PLCDataType.Float,false),
+                new List<PLCPointInfo>()
+                {
+                    new PLCPointInfo("速度", PLCDataType.Float, false),
                 });
         }
     }

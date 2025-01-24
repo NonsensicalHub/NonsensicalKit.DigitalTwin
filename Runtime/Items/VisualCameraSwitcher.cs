@@ -6,7 +6,7 @@ namespace NonsensicalKit.DigitalTwin
     /// <summary>
     /// 基于Cinemachine的多摄像机管理，负责相机之间的切换
     /// </summary>
-    public class VirsualCamereSwitcher : MonoSingleton<VirsualCamereSwitcher>
+    public class VisualCameraSwitcher : MonoSingleton<VisualCameraSwitcher>
     {
         private CinemachineVirtualCamera _laseCamera;
 

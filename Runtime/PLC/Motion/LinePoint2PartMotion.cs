@@ -1,6 +1,7 @@
-using NonsensicalKit.Tools;
 using System.Collections.Generic;
+using NonsensicalKit.Tools;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace NonsensicalKit.DigitalTwin.PLC
 {
@@ -9,25 +10,25 @@ namespace NonsensicalKit.DigitalTwin.PLC
     /// </summary>
     public class LinePoint2PartMotion : PartMotionBase
     {
-        public Transform m_Trays;     //用于运输的料盘
-        public Transform m_DownPos;   //下方停止点
-        public Transform m_UpPos;     //上方停止点
-        public Transform m_NextPos;   //下一个地点的为止
-        public float m_MoveTime = 5;      //前往下一个地点用时
-        public float m_VerticalTime = 1;      //上下方移动用时
-        public bool u_UseNext = false; //是否使用下一个点位的信号,在线同步仿真时应当使用，虚拟运行是应当不使用，因为无法正确同步
+        public Transform m_Trays; //用于运输的料盘
+        public Transform m_DownPos; //下方停止点
+        public Transform m_UpPos; //上方停止点
+        public Transform m_NextPos; //下一个地点的为止
+        public float m_MoveTime = 5; //前往下一个地点用时
+        public float m_VerticalTime = 1; //上下方移动用时
+        [FormerlySerializedAs("u_UseNext")] public bool m_UseNext; //是否使用下一个点位的信号,在线同步仿真时应当使用，虚拟运行是应当不使用，因为无法正确同步
 
-        private bool _up;        //是否去过上层
-        private bool _first;     //是否是首次接受信号
+        private bool _up; //是否去过上层
+        private bool _first; //是否是首次接受信号
         private bool _downCheck; //下方是否检测到物料
-        private bool _upCheck;   //上方方是否检测到物料
-        private bool _moving;    //是否正在前往下一个地点
-        private bool _fall;      //是否正在从上方前往下方
+        private bool _upCheck; //上方方是否检测到物料
+        private bool _moving; //是否正在前往下一个地点
+        private bool _fall; //是否正在从上方前往下方
         private bool _nextCheck; //下个地点是否检测到物料
 
-        private Tweenner _moveTweenner;
-        private Tweenner _fallTweenner;
-        private Tweenner _floatTweenner;
+        private Tweener _moveTweener;
+        private Tweener _fallTweener;
+        private Tweener _floatTweener;
 
         protected override void Init()
         {
@@ -42,7 +43,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
         /// <param name="part"></param>
         protected override void OnReceiveData(List<PLCPoint> part)
         {
-            if (u_UseNext)
+            if (m_UseNext)
             {
                 if (_first)
                 {
@@ -61,6 +62,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
                         m_Trays.gameObject.SetActive(true);
                         m_Trays.position = m_UpPos.position;
                     }
+
                     return;
                 }
 
@@ -71,11 +73,12 @@ namespace NonsensicalKit.DigitalTwin.PLC
                     if (_nextCheck)
                     {
                         m_Trays.gameObject.SetActive(false);
-                        if (_moveTweenner != null)
+                        if (_moveTweener != null)
                         {
-                            _moveTweenner.Abort();
-                            _moveTweenner = null;
+                            _moveTweener.Abort();
+                            _moveTweener = null;
                         }
+
                         _moving = true;
                     }
                 }
@@ -87,16 +90,17 @@ namespace NonsensicalKit.DigitalTwin.PLC
                     if (_upCheck)
                     {
                         _up = true;
-                        if (_floatTweenner != null)
+                        if (_floatTweener != null)
                         {
-                            _floatTweenner.Abort();
-                            _floatTweenner = null;
+                            _floatTweener.Abort();
+                            _floatTweener = null;
                         }
+
                         m_Trays.position = m_UpPos.position;
                     }
                     else
                     {
-                        RunTweenner(_fallTweenner, m_Trays, m_DownPos.position, m_VerticalTime);
+                        RunTweener(ref _fallTweener, m_Trays, m_DownPos.position, m_VerticalTime);
                         _fall = true;
                     }
                 }
@@ -109,11 +113,12 @@ namespace NonsensicalKit.DigitalTwin.PLC
                         if (_fall)
                         {
                             _fall = false;
-                            if (_moveTweenner != null)
+                            if (_moveTweener != null)
                             {
-                                _moveTweenner.Abort();
-                                _moveTweenner = null;
+                                _moveTweener.Abort();
+                                _moveTweener = null;
                             }
+
                             m_Trays.position = m_DownPos.position;
                         }
                         else
@@ -127,12 +132,12 @@ namespace NonsensicalKit.DigitalTwin.PLC
                         if (_up)
                         {
                             _up = false;
-                            RunTweenner(_moveTweenner, m_Trays, m_NextPos.position, m_MoveTime);
+                            RunTweener(ref _moveTweener, m_Trays, m_NextPos.position, m_MoveTime);
                             _moving = true;
                         }
                         else
                         {
-                            RunTweenner(_floatTweenner, m_Trays, m_UpPos.position, m_VerticalTime);
+                            RunTweener(ref _floatTweener, m_Trays, m_UpPos.position, m_VerticalTime);
                         }
                     }
                 }
@@ -155,6 +160,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
                         m_Trays.gameObject.SetActive(true);
                         m_Trays.position = m_UpPos.position;
                     }
+
                     return;
                 }
 
@@ -165,16 +171,17 @@ namespace NonsensicalKit.DigitalTwin.PLC
                     if (_upCheck)
                     {
                         _up = true;
-                        if (_floatTweenner != null)
+                        if (_floatTweener != null)
                         {
-                            _floatTweenner.Abort();
-                            _floatTweenner = null;
+                            _floatTweener.Abort();
+                            _floatTweener = null;
                         }
+
                         m_Trays.position = m_UpPos.position;
                     }
                     else
                     {
-                        RunTweenner(_fallTweenner, m_Trays, m_DownPos.position, m_VerticalTime);
+                        RunTweener(ref _fallTweener, m_Trays, m_DownPos.position, m_VerticalTime);
                         _fall = true;
                     }
                 }
@@ -187,11 +194,12 @@ namespace NonsensicalKit.DigitalTwin.PLC
                         if (_fall)
                         {
                             _fall = false;
-                            if (_moveTweenner != null)
+                            if (_moveTweener != null)
                             {
-                                _moveTweenner.Abort();
-                                _moveTweenner = null;
+                                _moveTweener.Abort();
+                                _moveTweener = null;
                             }
+
                             m_Trays.position = m_DownPos.position;
                         }
                         else
@@ -205,41 +213,46 @@ namespace NonsensicalKit.DigitalTwin.PLC
                         if (_up)
                         {
                             _up = false;
-                            RunTweenner(_moveTweenner, m_Trays, m_NextPos.position, m_MoveTime, true);
+                            RunTweener(ref _moveTweener, m_Trays, m_NextPos.position, m_MoveTime, true);
                             _moving = true;
                         }
                         else
                         {
-                            RunTweenner(_floatTweenner, m_Trays, m_UpPos.position, m_VerticalTime);
+                            RunTweener(ref _floatTweener, m_Trays, m_UpPos.position, m_VerticalTime);
                         }
                     }
                 }
             }
         }
 
-        private void RunTweenner(Tweenner tweenner, Transform control, Vector3 target, float time, bool needClear = false)
+        private void RunTweener(ref Tweener tweener, Transform control, Vector3 target, float time, bool needClear = false)
         {
-            if (tweenner != null)
+            if (tweener != null)
             {
-                tweenner.Abort();
-                tweenner = null;
+                tweener.Abort();
             }
+
             if (needClear)
             {
-                tweenner = control.DoMove(target, time).OnComplete(() => { tweenner = null; control.gameObject.SetActive(false); });
+                tweener = control.DoMove(target, time).OnComplete(() =>
+                {
+                    control.gameObject.SetActive(false);
+                });
             }
             else
             {
-                tweenner = control.DoMove(target, time);
+                tweener = control.DoMove(target, time);
             }
         }
+
         protected override PLCPartInfo GetInfo()
         {
             return new PLCPartInfo("传送带双层停止点", m_partID,
-                new List<PLCPointInfo>() {
-                new PLCPointInfo("下方传感",PLCDataType.Int,false),
-                new PLCPointInfo("上方传感",PLCDataType.Int,false),
-                new PLCPointInfo("后一点位传感",PLCDataType.Int,false),
+                new List<PLCPointInfo>()
+                {
+                    new PLCPointInfo("下方传感", PLCDataType.Int, false),
+                    new PLCPointInfo("上方传感", PLCDataType.Int, false),
+                    new PLCPointInfo("后一点位传感", PLCDataType.Int, false),
                 });
         }
     }

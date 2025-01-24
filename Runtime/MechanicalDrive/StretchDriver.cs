@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.Events;
 
 namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 {
@@ -11,7 +10,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         [SerializeField] private Axis m_axis;
         [SerializeField] private Stretcher[] m_left;
         [SerializeField] private Stretcher[] m_right;
-        
+
         private float _startPos;
 
         private void Awake()
@@ -26,6 +25,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
             {
                 c.SetNewSize(nowPos - _startPos);
             }
+
             foreach (var c in m_right)
             {
                 c.SetNewSize(_startPos - nowPos);

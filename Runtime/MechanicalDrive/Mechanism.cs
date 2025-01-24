@@ -4,8 +4,8 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 {
     public enum DriveType
     {
-        Linear,//线速度运动，单位是米
-        Angular//角速度运动，单位是角度
+        Linear, //线速度运动，单位是米
+        Angular //角速度运动，单位是角度
     }
 
     /// <summary>

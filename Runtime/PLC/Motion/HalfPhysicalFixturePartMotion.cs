@@ -34,6 +34,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
             {
                 _endPos1 = _startPos1 + m_Area1.transform.parent.InverseTransformVector(GetDir(m_Dir1Type) * m_Distance);
             }
+
             _startPos2 = m_Area2.transform.localPosition;
             if (m_Area2.transform.parent == null)
             {
@@ -43,15 +44,11 @@ namespace NonsensicalKit.DigitalTwin.PLC
             {
                 _endPos2 = _startPos2 + m_Area2.transform.parent.InverseTransformVector(GetDir(m_Dir2Type) * m_Distance);
             }
-            m_Area1.OnMaterialsEnter.AddListener(OnFixtureEnter);
-            m_Area1.OnMaterialsExit.AddListener(OnFixtureExit);
-            m_Area2.OnMaterialsEnter.AddListener(OnFixtureEnter);
-            m_Area2.OnMaterialsExit.AddListener(OnFixtureExit);
-        }
 
-        protected override void Dispose()
-        {
-            base.Dispose();
+            m_Area1.m_OnMaterialsEnter.AddListener(OnFixtureEnter);
+            m_Area1.m_OnMaterialsExit.AddListener(OnFixtureExit);
+            m_Area2.m_OnMaterialsEnter.AddListener(OnFixtureEnter);
+            m_Area2.m_OnMaterialsExit.AddListener(OnFixtureExit);
         }
 
         protected override void OnReceiveData(List<PLCPoint> part)
@@ -70,6 +67,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
                         Release(_touchMaterials);
                     }
                 }
+
                 StopAllCoroutines();
                 StartCoroutine(Running(_isClamping));
             }
@@ -150,8 +148,9 @@ namespace NonsensicalKit.DigitalTwin.PLC
         protected override PLCPartInfo GetInfo()
         {
             return new PLCPartInfo("碰撞夹具", m_partID,
-                new List<PLCPointInfo>() {
-                new PLCPointInfo("是否加紧",PLCDataType.Bool,false)
+                new List<PLCPointInfo>()
+                {
+                    new PLCPointInfo("是否加紧", PLCDataType.Bool, false)
                 });
         }
     }

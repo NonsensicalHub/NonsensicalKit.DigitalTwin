@@ -8,7 +8,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
     /// </summary>
     public class MultiSensorPartMotion : PartMotionBase
     {
-        public GameObject[] m_ControlTargets;  //控制对象
+        public GameObject[] m_ControlTargets; //控制对象
 
         protected override void OnReceiveData(List<PLCPoint> part)
         {
@@ -22,6 +22,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
                 m_ControlTargets[i].SetActive(bool.Parse(part[i].value));
             }
         }
+
         protected override PLCPartInfo GetInfo()
         {
             List<PLCPointInfo> v = new List<PLCPointInfo>();
@@ -29,6 +30,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
             {
                 v.Add(new PLCPointInfo("传感" + i, PLCDataType.Bool, false));
             }
+
             return new PLCPartInfo("多传感显示部件", m_partID, v);
         }
     }

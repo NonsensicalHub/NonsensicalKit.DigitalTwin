@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace NonsensicalKit.DigitalTwin.PLC
 {
@@ -8,19 +9,21 @@ namespace NonsensicalKit.DigitalTwin.PLC
     /// </summary>
     public class SensorPartMotion : PartMotionBase
     {
-        public GameObject m_ControlTarget;  //控制对象
-        public bool m_inverse;
+        public GameObject m_ControlTarget; //控制对象
+        [FormerlySerializedAs("m_inverse")] public bool m_Inverse;
 
         protected override void OnReceiveData(List<PLCPoint> part)
         {
             var b = bool.Parse(part[0].value);
-            m_ControlTarget.SetActive(m_inverse ? !b : b);
+            m_ControlTarget.SetActive(m_Inverse ? !b : b);
         }
+
         protected override PLCPartInfo GetInfo()
         {
             return new PLCPartInfo("传感器部件", m_partID,
-                new List<PLCPointInfo>() {
-                new PLCPointInfo("传感",PLCDataType.Bool,false),
+                new List<PLCPointInfo>()
+                {
+                    new PLCPointInfo("传感", PLCDataType.Bool, false),
                 });
         }
     }

@@ -1,6 +1,6 @@
-using NonsensicalKit.Core;
 using System;
 using System.Collections.Generic;
+using NonsensicalKit.Core;
 using UnityEngine;
 
 namespace NonsensicalKit.DigitalTwin.PLC
@@ -14,15 +14,16 @@ namespace NonsensicalKit.DigitalTwin.PLC
         /// 对应的部件id
         /// </summary>
         [SerializeField] protected string m_partID;
+
         /// <summary>
         /// 在Awake时初始化
         /// </summary>
-        [SerializeField] private bool m_autoInit = false;
+        [SerializeField] private bool m_autoInit;
 
         /// <summary>
         /// 从毫秒转换成秒的倍率
         /// </summary>
-        protected static float _magnification = 0.001f;
+        protected const float Magnification = 0.001f;
 
         /// <summary>
         /// 接收到数据后进行处理的方法
@@ -32,8 +33,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
 
         protected virtual void Awake()
         {
-            IOCC.Register<PLCPartInfo>(GetInfo);
-
+            IOCC.Register(GetInfo);
         }
 
         private void OnEnable()
@@ -52,7 +52,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
         protected override void OnDestroy()
         {
             base.OnDestroy();
-            IOCC.Unregister<PLCPartInfo>(GetInfo);
+            IOCC.Unregister(GetInfo);
         }
 
         protected abstract PLCPartInfo GetInfo();

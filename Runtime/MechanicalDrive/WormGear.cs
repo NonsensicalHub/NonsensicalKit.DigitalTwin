@@ -5,13 +5,17 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 {
     public class WormGear : Mechanism
     {
-        [FormerlySerializedAs("worm")] [SerializeField]private Gear m_worm;
+        [FormerlySerializedAs("worm")] [SerializeField]
+        private Gear m_worm;
 
-        [FormerlySerializedAs("threads")] [SerializeField]private int m_threads = 1;
+        [FormerlySerializedAs("threads")] [SerializeField]
+        private int m_threads = 1;
 
-        [FormerlySerializedAs("gear")] [SerializeField]private Gear m_gear;
+        [FormerlySerializedAs("gear")] [SerializeField]
+        private Gear m_gear;
 
-        [FormerlySerializedAs("teeth")] [SerializeField]private int m_teeth = 36;
+        [FormerlySerializedAs("teeth")] [SerializeField]
+        private int m_teeth = 36;
 
         public override void Drive(float velocity, DriveType driveType)
         {

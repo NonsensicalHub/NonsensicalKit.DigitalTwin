@@ -1,5 +1,5 @@
-using NonsensicalKit.Tools;
 using System.Collections.Generic;
+using NonsensicalKit.Tools;
 using UnityEngine;
 
 namespace NonsensicalKit.DigitalTwin.PLC
@@ -10,10 +10,10 @@ namespace NonsensicalKit.DigitalTwin.PLC
     /// </summary>
     public class CylinderPartMotion : PartMotionBase
     {
-        public Transform[] m_ControlTarget;       //操作对象
-        public Vector3[] m_TargetLocalPosition;   //气缸开启时的目标位置
-        public Vector3[] m_TargetLocalEuler;      //气缸开启时的目标欧拉角
-        public float m_TimeRequired = 0.5f;     //完成气缸运动所需时间
+        public Transform[] m_ControlTarget; //操作对象
+        public Vector3[] m_TargetLocalPosition; //气缸开启时的目标位置
+        public Vector3[] m_TargetLocalEuler; //气缸开启时的目标欧拉角
+        public float m_TimeRequired = 0.5f; //完成气缸运动所需时间
 
         private bool _crtState;
         private Vector3[] _originPos;
@@ -63,8 +63,9 @@ namespace NonsensicalKit.DigitalTwin.PLC
         protected override PLCPartInfo GetInfo()
         {
             return new PLCPartInfo("等角度旋转部件", m_partID,
-                new List<PLCPointInfo>() {
-                new PLCPointInfo("角度索引",PLCDataType.Int,false),
+                new List<PLCPointInfo>()
+                {
+                    new PLCPointInfo("角度索引", PLCDataType.Int, false),
                 });
         }
     }

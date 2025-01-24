@@ -1,6 +1,4 @@
-using System;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 {
@@ -8,8 +6,8 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
     {
         [SerializeField] private Transform m_point;
 
-  
-     [SerializeField]  private Axis m_axis = Axis.X;
+
+        [SerializeField] private Axis m_axis = Axis.X;
 
         private Vector3 PlaneNormal
         {
@@ -17,10 +15,10 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
             {
                 switch (m_axis)
                 {
-                    default: 
-                    case Axis.X:return transform.right;
-                    case Axis.Y:return transform.up;
-                    case Axis.Z:return transform.forward;
+                    default:
+                    case Axis.X: return transform.right;
+                    case Axis.Y: return transform.up;
+                    case Axis.Z: return transform.forward;
                 }
             }
         }
@@ -33,20 +31,20 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
                 {
                     switch (m_axis)
                     {
-                        default: 
-                        case Axis.X:return transform.parent.TransformVector(Vector3.forward);;
-                        case Axis.Y:return transform.parent.TransformVector(Vector3.right);
-                        case Axis.Z:return transform.parent.TransformVector(Vector3.up);
+                        default:
+                        case Axis.X: return transform.parent.TransformVector(Vector3.forward);
+                        case Axis.Y: return transform.parent.TransformVector(Vector3.right);
+                        case Axis.Z: return transform.parent.TransformVector(Vector3.up);
                     }
                 }
                 else
                 {
                     switch (m_axis)
                     {
-                        default: 
-                        case Axis.X:return Vector3.forward;
-                        case Axis.Y:return Vector3.right;
-                        case Axis.Z:return Vector3.up;
+                        default:
+                        case Axis.X: return Vector3.forward;
+                        case Axis.Y: return Vector3.right;
+                        case Axis.Z: return Vector3.up;
                     }
                 }
             }

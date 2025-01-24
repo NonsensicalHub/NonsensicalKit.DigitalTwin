@@ -1,7 +1,9 @@
-using NonsensicalKit.Core;
-using NonsensicalKit.Tools;
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using NonsensicalKit.Core;
+using NonsensicalKit.Tools;
+using UnityEditor;
 using UnityEngine;
 
 namespace NonsensicalKit.DigitalTwin
@@ -28,29 +30,34 @@ namespace NonsensicalKit.DigitalTwin
         IZ,
     }
 
-    [System.Serializable]
+    [Serializable]
     public class JointSetting
     {
         /// <summary>
         /// 关节节点
         /// </summary>
         public Transform JointsNode;
+
         /// <summary>
         /// 需要改变的轴
         /// </summary>
         public JointAxisType AxisType;
+
         /// <summary>
         /// 需要改变的方向
         /// </summary>
         public JointDirType DirType;
+
         /// <summary>
         /// 正常姿态时的欧拉角/轴坐标
         /// </summary>
         public Vector3 ZeroState;
+
         /// <summary>
         /// 正常姿态的初始值
         /// </summary>
         public float InitialValue;
+
         /// <summary>
         /// 转换率（一单位改变需要改变多少角度/位移）
         /// </summary>
@@ -61,8 +68,8 @@ namespace NonsensicalKit.DigitalTwin
     {
         public ActionData()
         {
-
         }
+
         public ActionData(long[] values, double time = 0)
         {
             Values = new float[values.Length];
@@ -70,8 +77,10 @@ namespace NonsensicalKit.DigitalTwin
             {
                 Values[i] = values[i];
             }
+
             Time = (float)time;
         }
+
         public ActionData(double[] values, double time = 0)
         {
             Values = new float[values.Length];
@@ -79,8 +88,10 @@ namespace NonsensicalKit.DigitalTwin
             {
                 Values[i] = (float)values[i];
             }
+
             Time = (float)time;
         }
+
         public ActionData(float[] values, float time = 0)
         {
             Values = values;
@@ -91,6 +102,7 @@ namespace NonsensicalKit.DigitalTwin
         /// 每个节点的数值
         /// </summary>
         public float[] Values { get; set; }
+
         /// <summary>
         /// 到达目标关节需要多久
         /// </summary>
@@ -113,7 +125,7 @@ namespace NonsensicalKit.DigitalTwin
 
         public JointSetting[] Joints;
 
-        private float _listTimer;    //贯穿链表数据运动的计时器，用于校准时间，避免因为每个数据执行时协程里一帧的等待时间积累起来导致的时间误差
+        private float _listTimer; //贯穿链表数据运动的计时器，用于校准时间，避免因为每个数据执行时协程里一帧的等待时间积累起来导致的时间误差
         private float _listTime;
 
         private bool _isList;
@@ -148,7 +160,7 @@ namespace NonsensicalKit.DigitalTwin
                 }
             }
 
-            UnityEditor.EditorUtility.SetDirty(gameObject);
+            EditorUtility.SetDirty(gameObject);
         }
 
         /// <summary>
@@ -172,7 +184,7 @@ namespace NonsensicalKit.DigitalTwin
                 }
             }
 
-            UnityEditor.EditorUtility.SetDirty(gameObject);
+            EditorUtility.SetDirty(gameObject);
         }
 #endif
 
@@ -188,12 +200,9 @@ namespace NonsensicalKit.DigitalTwin
                 if (Joints[i].AxisType == JointAxisType.Position)
                 {
                     gap = (Joints[i].JointsNode.localPosition - Joints[i].ZeroState) / Joints[i].ConversionRate;
-
-
                 }
                 else if (Joints[i].AxisType == JointAxisType.Rotation)
                 {
-
                     //gap = Vector3.one* Quaternion.Angle(Quaternion.Euler(joints[i].jointsNode.localEulerAngles), Quaternion.Euler(joints[i].zeroState));
 
                     gap = (Joints[i].JointsNode.localEulerAngles - Joints[i].ZeroState) / Joints[i].ConversionRate;
@@ -232,6 +241,7 @@ namespace NonsensicalKit.DigitalTwin
 
                 values[i] = crtValue;
             }
+
             return values;
         }
 
@@ -267,6 +277,7 @@ namespace NonsensicalKit.DigitalTwin
 
                 time = _listTime - _listTimer;
             }
+
             int min = Joints.Length < jd.Length ? Joints.Length : jd.Length;
 
             for (int i = 0; i < min - 1; i++)
@@ -305,6 +316,7 @@ namespace NonsensicalKit.DigitalTwin
                     v3Offset = new Vector3(0, 0, -offset);
                     break;
             }
+
             Vector3 targetV3 = crtJoint.ZeroState + v3Offset;
             switch (crtJoint.AxisType)
             {
@@ -382,6 +394,7 @@ namespace NonsensicalKit.DigitalTwin
                 {
                     targetTsf.localPosition = Vector3.Lerp(startLocalPosition, targetLocalPosition, timer / time);
                 }
+
                 yield return null;
             }
         }

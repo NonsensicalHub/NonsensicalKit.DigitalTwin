@@ -10,26 +10,26 @@ namespace NonsensicalKit.DigitalTwin.PLC
         public JointSetting[] m_Joints;
         public bool m_UseInt;
 
-        protected long _lastTicks;
-        protected JointController _controller;
+        protected long LastTicks;
+        protected JointController Controller;
 
         protected override void Init()
         {
             base.Init();
-            _controller = gameObject.AddComponent<JointController>();
+            Controller = gameObject.AddComponent<JointController>();
 
-            _controller.Joints = m_Joints;
+            Controller.Joints = m_Joints;
         }
 
         protected override void Dispose()
         {
             base.Dispose();
-            Destroy(_controller);
+            Destroy(Controller);
         }
 
         protected override void OnReceiveData(List<PLCPoint> part)
         {
-            if (!_controller)
+            if (!Controller)
             {
                 return;
             }
@@ -38,12 +38,14 @@ namespace NonsensicalKit.DigitalTwin.PLC
             {
                 return;
             }
+
             long time = 0;
-            if (_lastTicks != 0)
+            if (LastTicks != 0)
             {
-                time = part[0].ticks - _lastTicks;
+                time = part[0].ticks - LastTicks;
             }
-            _lastTicks = part[0].ticks;
+
+            LastTicks = part[0].ticks;
             float[] values = new float[m_Joints.Length];
             if (m_UseInt)
             {
@@ -59,7 +61,8 @@ namespace NonsensicalKit.DigitalTwin.PLC
                     values[i] = float.Parse(part[i].value);
                 }
             }
-            _controller.ChangeState(new ActionData(values, time * _magnification));
+
+            Controller.ChangeState(new ActionData(values, time * Magnification));
         }
 
         protected override PLCPartInfo GetInfo()
@@ -69,11 +72,13 @@ namespace NonsensicalKit.DigitalTwin.PLC
             {
                 type = PLCDataType.Int;
             }
+
             List<PLCPointInfo> v = new List<PLCPointInfo>();
             for (int i = 0; i < m_Joints.Length; i++)
             {
                 v.Add(new PLCPointInfo("轴" + i, type, false));
             }
+
             return new PLCPartInfo("多轴运动部件", m_partID, v);
         }
     }

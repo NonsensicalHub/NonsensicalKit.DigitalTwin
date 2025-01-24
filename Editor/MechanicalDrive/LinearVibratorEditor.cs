@@ -10,7 +10,7 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
     {
         private LinearVibrator _script;
 
-        private Vector3 _startPosition
+        private Vector3 StartPosition
         {
             get
             {
@@ -25,27 +25,21 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
             }
         }
 
-        private Vector3 _moveAxisInWorldSpace
-        {
-            get
-            {
-                return _script.transform.TransformVector(_script.MoveAxis).normalized;
-            }
-        }
+        private Vector3 MoveAxisInWorldSpace => _script.transform.TransformVector(_script.MoveAxis).normalized;
 
         private void OnEnable()
         {
-            _script = target as LinearVibrator; ;
+            _script = target as LinearVibrator;
         }
 
         private void OnSceneGUI()
         {
-            Handles.color = blue;
-            Handles.SphereHandleCap(0, _startPosition, Quaternion.identity, nodeSize, EventType.Repaint);
-            Handles.SphereHandleCap(0, _script.transform.position, Quaternion.identity, nodeSize, EventType.Repaint);
+            Handles.color = Blue;
+            Handles.SphereHandleCap(0, StartPosition, Quaternion.identity, NodeSize, EventType.Repaint);
+            Handles.SphereHandleCap(0, _script.transform.position, Quaternion.identity, NodeSize, EventType.Repaint);
 
-            DrawArrow(_startPosition, _moveAxisInWorldSpace, -_script.AmplitudeRadius, nodeSize, string.Empty, blue);
-            DrawArrow(_startPosition, _moveAxisInWorldSpace, _script.AmplitudeRadius, nodeSize, string.Empty, blue);
+            DrawArrow(StartPosition, MoveAxisInWorldSpace, -_script.AmplitudeRadius, NodeSize, string.Empty, Blue);
+            DrawArrow(StartPosition, MoveAxisInWorldSpace, _script.AmplitudeRadius, NodeSize, string.Empty, Blue);
         }
     }
 }

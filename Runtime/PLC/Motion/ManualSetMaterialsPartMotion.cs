@@ -28,8 +28,9 @@ namespace NonsensicalKit.DigitalTwin.PLC
         protected override PLCPartInfo GetInfo()
         {
             return new PLCPartInfo("模拟人工放置传感器", m_partID,
-                new List<PLCPointInfo>() {
-                new PLCPointInfo("放置",PLCDataType.Bool,false),
+                new List<PLCPointInfo>()
+                {
+                    new PLCPointInfo("放置", PLCDataType.Bool, false),
                 });
         }
     }

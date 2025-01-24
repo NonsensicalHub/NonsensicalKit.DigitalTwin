@@ -1,5 +1,5 @@
-using NonsensicalKit.Tools;
 using System.Collections.Generic;
+using NonsensicalKit.Tools;
 using UnityEngine;
 
 namespace NonsensicalKit.DigitalTwin.PLC
@@ -10,12 +10,12 @@ namespace NonsensicalKit.DigitalTwin.PLC
     public class Sensor2MovePartMotion : PartMotionBase
     {
         public Transform m_ControlTarget;
-        public JointAxisType m_Type;       //运动类型
-        public Vector3 m_State1;      //传感器1对应的姿态
-        public Vector3 m_State2;      //传感器2对应的姿态
-        public float m_Time = 0.5f;          //运动的时间
+        public JointAxisType m_Type; //运动类型
+        public Vector3 m_State1; //传感器1对应的姿态
+        public Vector3 m_State2; //传感器2对应的姿态
+        public float m_Time = 0.5f; //运动的时间
 
-        private Tweenner _tweenner;
+        private Tweener _tweener;
 
         private bool _first;
         private bool _check1;
@@ -35,7 +35,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
                 _first = false;
                 _check1 = bool.Parse(part[0].value);
                 _check2 = bool.Parse(part[1].value);
-                UpdateState(_check1 ? true : false, true);
+                UpdateState(_check1, true);
                 return;
             }
 
@@ -47,16 +47,18 @@ namespace NonsensicalKit.DigitalTwin.PLC
             {
                 UpdateState(true);
             }
+
             _check1 = bool.Parse(part[0].value);
             _check2 = bool.Parse(part[1].value);
         }
 
         private void UpdateState(bool targetIsState1, bool immediately = false)
         {
-            if (_tweenner != null)
+            if (_tweener != null)
             {
-                _tweenner.Abort();
+                _tweener.Abort();
             }
+
             switch (m_Type)
             {
                 case JointAxisType.Rotation:
@@ -66,8 +68,9 @@ namespace NonsensicalKit.DigitalTwin.PLC
                     }
                     else
                     {
-                        _tweenner = m_ControlTarget.DoLocalRotate(targetIsState1 ? m_State1 : m_State2, m_Time);
+                        _tweener = m_ControlTarget.DoLocalRotate(targetIsState1 ? m_State1 : m_State2, m_Time);
                     }
+
                     break;
                 case JointAxisType.Position:
                     if (immediately)
@@ -76,8 +79,9 @@ namespace NonsensicalKit.DigitalTwin.PLC
                     }
                     else
                     {
-                        _tweenner = m_ControlTarget.DoLocalMove(targetIsState1 ? m_State1 : m_State2, m_Time);
+                        _tweener = m_ControlTarget.DoLocalMove(targetIsState1 ? m_State1 : m_State2, m_Time);
                     }
+
                     break;
             }
         }
@@ -85,9 +89,10 @@ namespace NonsensicalKit.DigitalTwin.PLC
         protected override PLCPartInfo GetInfo()
         {
             return new PLCPartInfo("双传感移动部件", m_partID,
-                new List<PLCPointInfo>() {
-                new PLCPointInfo("传感1",PLCDataType.Bool,false),
-                new PLCPointInfo("传感2",PLCDataType.Bool,false),
+                new List<PLCPointInfo>()
+                {
+                    new PLCPointInfo("传感1", PLCDataType.Bool, false),
+                    new PLCPointInfo("传感2", PLCDataType.Bool, false),
                 });
         }
     }

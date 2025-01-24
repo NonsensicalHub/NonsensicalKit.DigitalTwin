@@ -1,5 +1,5 @@
-using NUnit.Framework;
 using System.Collections;
+using NUnit.Framework;
 using UnityEngine.TestTools;
 
 namespace NonsensicalKit.DigitalTwin.Editor.Tests

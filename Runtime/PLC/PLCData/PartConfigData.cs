@@ -1,5 +1,6 @@
-using NonsensicalKit.Core.Service.Config;
+using System;
 using System.Collections.Generic;
+using NonsensicalKit.Core.Service.Config;
 using UnityEngine;
 
 namespace NonsensicalKit.DigitalTwin.PLC
@@ -8,6 +9,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
     public class PartConfigData : ConfigObject
     {
         public PartConfig data;
+
         public override ConfigData GetData()
         {
             return data;
@@ -19,7 +21,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
         }
     }
 
-    [System.Serializable]
+    [Serializable]
     public class PartConfig : ConfigData
     {
         public string partName;
@@ -27,12 +29,12 @@ namespace NonsensicalKit.DigitalTwin.PLC
         public List<PointConfig> pointConfigs;
     }
 
-    [System.Serializable]
+    [Serializable]
     public class PointConfig
     {
         public string pointName;
         public string pointID;
         public string pointUnit;
-        public PLCDataType dataType=PLCDataType.String;
+        public PLCDataType dataType = PLCDataType.String;
     }
 }

@@ -1,5 +1,5 @@
-using NonsensicalKit.Tools;
 using System.Collections.Generic;
+using NonsensicalKit.Tools;
 using UnityEngine;
 
 namespace NonsensicalKit.DigitalTwin.PLC
@@ -31,12 +31,12 @@ namespace NonsensicalKit.DigitalTwin.PLC
 
         private float _intervalAngle;
 
-        private Tweenner _crtTweener;
+        private Tweener _crtTweener;
 
         protected override void Init()
         {
             base.Init();
-            _intervalAngle = 360 / m_Count;
+            _intervalAngle = 360f/ m_Count;
         }
 
         protected override void OnReceiveData(List<PLCPoint> part)
@@ -45,6 +45,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
             {
                 _crtTweener.Abort();
             }
+
             int index = (int)long.Parse(part[0].value);
             Vector3 target = Vector3.zero;
 
@@ -69,15 +70,16 @@ namespace NonsensicalKit.DigitalTwin.PLC
                     target = m_BaseEuler - new Vector3(0, 0, index * _intervalAngle);
                     break;
             }
-            _crtTweener = m_ControlTarget.DoLocalRotate(Quaternion.Euler(target), _intervalAngle).SetSpeedBased();
 
+            _crtTweener = m_ControlTarget.DoLocalRotate(Quaternion.Euler(target), _intervalAngle).SetSpeedBased();
         }
 
         protected override PLCPartInfo GetInfo()
         {
             return new PLCPartInfo("等角度旋转部件", m_partID,
-                new List<PLCPointInfo>() {
-                new PLCPointInfo("角度索引",PLCDataType.Int,false),
+                new List<PLCPointInfo>()
+                {
+                    new PLCPointInfo("角度索引", PLCDataType.Int, false),
                 });
         }
     }

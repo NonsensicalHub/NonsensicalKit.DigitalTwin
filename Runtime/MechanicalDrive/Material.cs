@@ -34,7 +34,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 
         private void OnTriggerEnter(Collider other)
         {
-            if (other.gameObject.TryGetComponent<DestroySpace>(out var v))
+            if (other.gameObject.TryGetComponent<DestroySpace>(out _))
             {
                 OnReset();
                 gameObject.SetActive(false);

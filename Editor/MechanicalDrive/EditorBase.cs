@@ -5,12 +5,12 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
 {
     public class EditorBase : UnityEditor.Editor
     {
-        protected Color blue = new Color(0, 1, 1, 1);
-        protected Color green = new Color(0, 1, 0, 1);
+        protected Color Blue = new Color(0, 1, 1, 1);
+        protected Color Green = new Color(0, 1, 0, 1);
 
-        protected float nodeSize = 0.05f;
-        protected float arrowLength = 0.75f;
-        protected float lineLength = 10;
+        protected float NodeSize = 0.05f;
+        protected float ArrowLength = 0.75f;
+        protected float LineLength = 10;
 
         protected void DrawArrow(Vector3 start, Vector3 end, float size, string text, Color color)
         {

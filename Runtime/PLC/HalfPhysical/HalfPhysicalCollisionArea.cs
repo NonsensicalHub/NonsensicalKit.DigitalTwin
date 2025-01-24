@@ -1,12 +1,16 @@
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Serialization;
 
 namespace NonsensicalKit.DigitalTwin.PLC
 {
     public class HalfPhysicalCollisionArea : MonoBehaviour
     {
-        public UnityEvent<HalfPhysicalMaterials> OnMaterialsEnter = new UnityEvent<HalfPhysicalMaterials>();
-        public UnityEvent<HalfPhysicalMaterials> OnMaterialsExit = new UnityEvent<HalfPhysicalMaterials>();
+        [FormerlySerializedAs("OnMaterialsEnter")]
+        public UnityEvent<HalfPhysicalMaterials> m_OnMaterialsEnter = new();
+
+        [FormerlySerializedAs("OnMaterialsExit")]
+        public UnityEvent<HalfPhysicalMaterials> m_OnMaterialsExit = new();
 
         private void Awake()
         {
@@ -20,18 +24,18 @@ namespace NonsensicalKit.DigitalTwin.PLC
 
         private void OnDestroy()
         {
-            OnMaterialsEnter.RemoveAllListeners();
-            OnMaterialsExit.RemoveAllListeners();
+            m_OnMaterialsEnter.RemoveAllListeners();
+            m_OnMaterialsExit.RemoveAllListeners();
         }
 
         public void MaterialsEnter(HalfPhysicalMaterials materials)
         {
-            OnMaterialsEnter?.Invoke(materials);
+            m_OnMaterialsEnter?.Invoke(materials);
         }
 
         public void MaterialsExit(HalfPhysicalMaterials materials)
         {
-            OnMaterialsExit?.Invoke(materials);
+            m_OnMaterialsExit?.Invoke(materials);
         }
     }
 }

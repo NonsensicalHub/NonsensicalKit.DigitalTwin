@@ -16,7 +16,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
                 var prefab = flag ? NodePrefab : m_rollerPrefab;
 
                 //Create node.
-                var nodeClone = (GameObject)Instantiate(prefab, NodeRoot);
+                var nodeClone = Instantiate(prefab, NodeRoot);
                 TowNodeBaseOnCurve(nodeClone.transform, i * Space);
 
                 //Set node ID.

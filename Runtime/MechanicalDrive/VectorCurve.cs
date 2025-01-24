@@ -17,7 +17,9 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
     public class VectorAnimationCurve
     {
         #region Property and Field
-        public VectorKeyframe this[int index] => new(_xCurve[index].time, new Vector3(_xCurve[index].value, _yCurve[index].value, _zCurve[index].value));
+
+        public VectorKeyframe this[int index] =>
+            new(_xCurve[index].time, new Vector3(_xCurve[index].value, _yCurve[index].value, _zCurve[index].value));
 
         /// <summary>
         /// Keyframe count.
@@ -45,6 +47,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         private readonly AnimationCurve _xCurve = new();
         private readonly AnimationCurve _yCurve = new();
         private readonly AnimationCurve _zCurve = new();
+
         #endregion
 
         #region Public Method
@@ -118,6 +121,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
                 SmoothTangents(i, weight);
             }
         }
+
         #endregion
     }
 }

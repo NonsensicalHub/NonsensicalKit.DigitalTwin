@@ -8,16 +8,16 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
     [CanEditMultipleObjects]
     public class GearEditor : EditorBase
     {
-        protected Gear script { get { return target as Gear; } }
+        protected Gear Script => target as Gear;
 
         protected void OnSceneGUI()
         {
-            Handles.color = blue;
-            Vector3 rotateAxis = script.transform.TransformVector(script.RotateAxis);
-            var fuckQ = Quaternion.FromToRotation(script.transform.forward, rotateAxis);
-            Handles.SphereHandleCap(0, script.transform.position, Quaternion.identity, nodeSize, EventType.Repaint);
-            Handles.CircleHandleCap(0, script.transform.position, fuckQ * script.transform.rotation, script.GearRadius, EventType.Repaint);
-            DrawArrow(script.transform.position, rotateAxis, arrowLength, nodeSize, "Axis", blue);
+            Handles.color = Blue;
+            Vector3 rotateAxis = Script.transform.TransformVector(Script.RotateAxis);
+            var fuckQ = Quaternion.FromToRotation(Script.transform.forward, rotateAxis);
+            Handles.SphereHandleCap(0, Script.transform.position, Quaternion.identity, NodeSize, EventType.Repaint);
+            Handles.CircleHandleCap(0, Script.transform.position, fuckQ * Script.transform.rotation, Script.GearRadius, EventType.Repaint);
+            DrawArrow(Script.transform.position, rotateAxis, ArrowLength, NodeSize, "Axis", Blue);
         }
     }
 }

@@ -1,8 +1,8 @@
+using System.Collections.Generic;
 using NonsensicalKit.Core;
 using NonsensicalKit.Core.Log;
 using NonsensicalKit.Core.Service;
 using NonsensicalKit.Core.Service.Config;
-using System.Collections.Generic;
 
 namespace NonsensicalKit.DigitalTwin.PLC
 {
@@ -15,7 +15,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
 
         private void OnGetManager(ConfigService manager)
         {
-            ConfigService configManager = manager as ConfigService;
+            ConfigService configManager = manager;
             if (configManager.TryGetConfigs<PartConfig>(out var configs))
             {
                 Publish<IEnumerable<PartConfig>>("partConfigInit", configs);

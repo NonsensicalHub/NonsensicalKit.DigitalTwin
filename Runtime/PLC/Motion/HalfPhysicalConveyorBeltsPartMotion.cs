@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace NonsensicalKit.DigitalTwin.PLC
 {
@@ -25,12 +26,12 @@ namespace NonsensicalKit.DigitalTwin.PLC
         /// </summary>
         public MoveDir m_Dir2Type;
 
-        public float m_ConversionRate = 1;//转换率，当为1时，数据为0.1代表速度为0.1m/s
+        public float m_ConversionRate = 1; //转换率，当为1时，数据为0.1代表速度为0.1m/s
 
         public HalfPhysicalCollisionArea m_Area;
-        public bool m_twoDir = true;
+        [FormerlySerializedAs("m_twoDir")] public bool m_TwoDir = true;
 
-        private List<HalfPhysicalMaterials> _materialss = new List<HalfPhysicalMaterials>();
+        private List<HalfPhysicalMaterials> _materialss = new();
         private float _speed1;
         private float _speed2;
         private bool _isRunning;
@@ -43,9 +44,9 @@ namespace NonsensicalKit.DigitalTwin.PLC
                 {
                     return;
                 }
-                if (m_twoDir)
-                {
 
+                if (m_TwoDir)
+                {
                     foreach (var item in _materialss)
                     {
                         item.Move(GetDir(m_Dir1Type) * _speed1 + GetDir(m_Dir2Type) * _speed2);
@@ -65,8 +66,8 @@ namespace NonsensicalKit.DigitalTwin.PLC
         {
             base.Init();
 
-            m_Area.OnMaterialsEnter.AddListener((hpm) => _materialss.Add(hpm));
-            m_Area.OnMaterialsExit.AddListener((hpm) => _materialss.Remove(hpm));
+            m_Area.m_OnMaterialsEnter.AddListener((hpm) => _materialss.Add(hpm));
+            m_Area.m_OnMaterialsExit.AddListener((hpm) => _materialss.Remove(hpm));
             _isRunning = true;
         }
 
@@ -74,7 +75,7 @@ namespace NonsensicalKit.DigitalTwin.PLC
         {
             //两个数据，分别代表两个方向的运行速度
             _speed1 = m_ConversionRate * float.Parse(part[0].value);
-            if (m_twoDir)
+            if (m_TwoDir)
             {
                 _speed2 = m_ConversionRate * float.Parse(part[1].value);
             }
@@ -111,9 +112,10 @@ namespace NonsensicalKit.DigitalTwin.PLC
         protected override PLCPartInfo GetInfo()
         {
             return new PLCPartInfo("碰撞双向传送带", m_partID,
-                new List<PLCPointInfo>() {
-                new PLCPointInfo("方向1速度",PLCDataType.Float,false),
-                new PLCPointInfo("方向2速度",PLCDataType.Float,false)
+                new List<PLCPointInfo>()
+                {
+                    new PLCPointInfo("方向1速度", PLCDataType.Float, false),
+                    new PLCPointInfo("方向2速度", PLCDataType.Float, false)
                 });
         }
     }

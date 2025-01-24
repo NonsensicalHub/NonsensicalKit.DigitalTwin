@@ -1,6 +1,7 @@
 using Cinemachine;
 using NonsensicalKit.Core;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace NonsensicalKit.DigitalTwin
 {
@@ -14,21 +15,27 @@ namespace NonsensicalKit.DigitalTwin
         /// <summary>
         /// Rotation speed when using the mouse.
         /// </summary>
-        [SerializeField] private float m_LookSpeedMouse = 4.0f;
+        [FormerlySerializedAs("m_LookSpeedMouse")] [SerializeField]
+        private float m_lookSpeedMouse = 4.0f;
+
         /// <summary>
         /// Movement speed.
         /// </summary>
-        [SerializeField] private float m_MoveSpeed = 10.0f;
+        [FormerlySerializedAs("m_MoveSpeed")] [SerializeField]
+        private float m_moveSpeed = 10.0f;
+
         /// <summary>
         /// Scale factor of the turbo mode.
         /// </summary>
-        [SerializeField] private float m_Turbo = 10.0f;
+        [FormerlySerializedAs("m_Turbo")] [SerializeField]
+        private float m_turbo = 10.0f;
+
         [SerializeField] private string m_cameraID;
 
-        private const string KEY_MOUSE_X = "Mouse X";
-        private const string KEY_MOUSE_Y = "Mouse Y";
-        private const string KEY_VERTICAL = "Vertical";
-        private const string KEY_HORIZONTAL = "Horizontal";
+        private const string KeyMouseX = "Mouse X";
+        private const string KeyMouseY = "Mouse Y";
+        private const string KeyVertical = "Vertical";
+        private const string KeyHorizontal = "Horizontal";
 
         private float _inputRotateAxisX, _inputRotateAxisY;
         private float _inputVertical, _inputHorizontal;
@@ -65,10 +72,10 @@ namespace NonsensicalKit.DigitalTwin
 
                 transform.localRotation = Quaternion.Euler(newRotationX, newRotationY, transform.localEulerAngles.z);
 
-                float moveSpeed = Time.deltaTime * m_MoveSpeed;
+                float moveSpeed = Time.deltaTime * m_moveSpeed;
                 if (_fire1 || _leftShiftBoost && _leftShift)
-                    moveSpeed *= m_Turbo;
-                _controller.Move(transform.forward * moveSpeed * _inputVertical + transform.right * moveSpeed * _inputHorizontal);
+                    moveSpeed *= m_turbo;
+                _controller.Move(transform.forward * (moveSpeed * _inputVertical) + transform.right * (moveSpeed * _inputHorizontal));
             }
         }
 
@@ -76,8 +83,7 @@ namespace NonsensicalKit.DigitalTwin
         {
             if (id == m_cameraID)
             {
-                Publish<CinemachineVirtualCamera>("switchCamera", _selfCamera);
-
+                Publish("switchCamera", _selfCamera);
             }
         }
 
@@ -91,15 +97,14 @@ namespace NonsensicalKit.DigitalTwin
             if (Input.GetMouseButton(1))
             {
                 _leftShiftBoost = true;
-                _inputRotateAxisX = Input.GetAxis(KEY_MOUSE_X) * m_LookSpeedMouse;
-                _inputRotateAxisY = Input.GetAxis(KEY_MOUSE_Y) * m_LookSpeedMouse;
+                _inputRotateAxisX = Input.GetAxis(KeyMouseX) * m_lookSpeedMouse;
+                _inputRotateAxisY = Input.GetAxis(KeyMouseY) * m_lookSpeedMouse;
             }
 
             _leftShift = Input.GetKey(KeyCode.LeftShift);
 
-            _inputVertical = Input.GetAxis(KEY_VERTICAL);
-            _inputHorizontal = Input.GetAxis(KEY_HORIZONTAL);
-
+            _inputVertical = Input.GetAxis(KeyVertical);
+            _inputHorizontal = Input.GetAxis(KeyHorizontal);
         }
     }
 }

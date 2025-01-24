@@ -24,7 +24,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         public GameObject NodePrefab => m_nodePrefab;
         public float Space => m_space;
 
-        private float _timer = 0;
+        private float _timer;
 
         protected virtual void Awake()
         {
@@ -64,7 +64,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
             for (int i = 0; i < Count; i++)
             {
                 //Create node.
-                var nodeClone = (GameObject)Instantiate(NodePrefab, NodeRoot);
+                var nodeClone = Instantiate(NodePrefab, NodeRoot);
                 TowNodeBaseOnCurve(nodeClone.transform, i * Space);
 
                 //Set node ID.

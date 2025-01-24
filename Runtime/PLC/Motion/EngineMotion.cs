@@ -1,11 +1,12 @@
-using NonsensicalKit.DigitalTwin.MechanicalDrive;
 using System.Collections.Generic;
+using NonsensicalKit.DigitalTwin.MechanicalDrive;
+using UnityEngine.Serialization;
 
 namespace NonsensicalKit.DigitalTwin.PLC
 {
     public class EngineMotion : PartMotionBase
     {
-        public PLCEngine m_engine;  //控制对象
+        [FormerlySerializedAs("m_engine")] public PLCEngine m_Engine; //控制对象
 
         private long _lastTick = -1;
 
@@ -17,7 +18,8 @@ namespace NonsensicalKit.DigitalTwin.PLC
                 {
                     _lastTick = part[0].ticks;
                 }
-                m_engine.ChangeValue(v, (part[0].ticks - _lastTick) * _magnification);
+
+                m_Engine.ChangeValue(v, (part[0].ticks - _lastTick) * Magnification);
                 _lastTick = part[0].ticks;
             }
         }

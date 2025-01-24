@@ -4,7 +4,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 {
     public class PLCEngine : Engine
     {
-        [SerializeField] private float m_initialValue = 0;
+        [SerializeField] private float m_initialValue;
         [SerializeField] private float m_maxPower = 10;
         [SerializeField] private float m_radio = 1;
 
@@ -47,7 +47,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 
         public void ChangeValue(float newValue)
         {
-            if (newValue != _targetValue)
+            if (!Mathf.Approximately(newValue, _targetValue))
             {
                 _targetValue = newValue;
                 enabled = true;
@@ -66,7 +66,8 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
                 ChangeValue(newValue);
                 return;
             }
-            if (newValue != _targetValue)
+
+            if (!Mathf.Approximately(newValue, _targetValue))
             {
                 _targetValue = newValue;
                 m_maxPower = Mathf.Abs(_targetValue - _currentValue) / time;
