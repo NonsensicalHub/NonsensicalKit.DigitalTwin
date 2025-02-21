@@ -5,7 +5,9 @@
         "NonsensicalKit.Core",
         "NonsensicalKit.UGUI",
         "Unity.TextMeshPro",
-        "Cinemachine"
+        "Cinemachine",
+        "NonsensicalKit.WebGL.Editor",
+        "NonsensicalKit.WebGL"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

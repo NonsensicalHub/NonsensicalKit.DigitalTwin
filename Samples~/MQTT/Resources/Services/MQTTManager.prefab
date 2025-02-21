@@ -1,0 +1,66 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &3189019748250197924
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3189019748250197926}
+  - component: {fileID: 3189019748250197925}
+  m_Layer: 0
+  m_Name: MQTTManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3189019748250197926
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3189019748250197924}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.9402631, y: 2.122823, z: -0.42072493}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 0
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3189019748250197925
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3189019748250197924}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a33a09912606ea24bb5c812644421257, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  MQTTPrefix: ws://
+  MQTTURI: broker.emqx.io
+  MQTTPort: 1883
+  MQTTPath: 
+  MQTTUser: 
+  MQTTPassword: 
+  m_differenceOnWebGL: 0
+  m_WebMQTTPrefix: ws://
+  m_WebMQTTURI: broker.emqx.io
+  m_WebMQTTPort: 1883
+  m_WebMQTTPath: 
+  m_WebMQTTUser: 
+  m_WebMQTTPassword: 
+  m_log: 0
+  m_recordTopic: 1
+  m_showTopics: 1
+  ReconnectGapTime: 10
+  m_useTLS: 0
+  _subscribeTopics: []
+  _status: 0

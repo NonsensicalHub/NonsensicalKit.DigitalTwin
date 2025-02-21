@@ -23,6 +23,11 @@
       "displayName": "UniTaskNetWorkRequest",
       "description": "UniTask网络请求",
       "path": "Samples~/UniTaskNetWorkRequest"
+    },
+    {
+      "displayName": "MQTT",
+      "description": "MQTT消息订阅",
+      "path": "Samples~/MQTT"
     }
   ]
 }
