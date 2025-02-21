@@ -2,6 +2,7 @@ using System;
 using NaughtyAttributes;
 using NonsensicalKit.Core;
 using NonsensicalKit.Core.Service;
+using NonsensicalKit.DigitalTwin.MQTT;
 using UnityEngine;
 
 public class MQTTTest : MonoBehaviour
@@ -17,17 +18,17 @@ public class MQTTTest : MonoBehaviour
     [SerializeField, TextArea(minLines: 5, maxLines: 25), BoxGroup("接收消息")]
     private string m_receivedTopic;
 
-    private MQTTManager m_manager;
+    private MqttService m_manager;
     GUIStyle m_Style;
     private Vector2 scrollPos; // 用于保存滚动位置
 
     private void Awake()
     {
-        ServiceCore.SafeGet<MQTTManager>(SafeGetManager);
+        ServiceCore.SafeGet<MqttService>(SafeGetManager);
         IOCC.Subscribe<string, string>("receivedMQTTData", MessageReceived);
     }
 
-    private void SafeGetManager(MQTTManager obj)
+    private void SafeGetManager(MqttService obj)
     {
         m_manager = obj;
     }
@@ -38,13 +39,13 @@ public class MQTTTest : MonoBehaviour
     [Button("订阅主题")]
     public void SubscribeTopic()
     {
-        m_manager?.SubscribeAsync(m_topic);
+        m_manager?.Manager.SubscribeAsync(m_topic);
         if (_addListener == false)
         {
             if (m_manager != null)
             {
                 _addListener = true;
-                m_manager.MessageReceived += MessageReceived;
+                m_manager.Manager.MessageReceived += MessageReceived;
             }
         }
 
@@ -57,7 +58,7 @@ public class MQTTTest : MonoBehaviour
     public void UnSubscribeTopic()
     {
 #if UNITY_EDITOR||!UNITY_WEBGL
-        m_manager?.UnsubscribeAsync(m_topic);
+        m_manager?.Manager.UnsubscribeAsync(m_topic);
 #else
         IOCC.Publish("SendMessageToJS", "MQTT", new string[] { "UnSubscribe", m_topic });
 #endif
@@ -66,7 +67,7 @@ public class MQTTTest : MonoBehaviour
     [Button("发布消息")]
     public void PublishMessage()
     {
-        m_manager?.PublishAsync(m_topic, m_message);
+        m_manager?.Manager.PublishAsync(m_topic, m_message);
     }
 
     [Button("清除消息区")]
@@ -132,7 +133,7 @@ public class MQTTTest : MonoBehaviour
 
         if (GUILayout.Button("PrintSubscribeTopics", GUILayout.Width(150)))
         {
-            var a = (m_manager ?? IOCC.Get<MQTTManager>("MQTTManager"))?.ShowSubscribedTopics();
+            var a = (m_manager ?? IOCC.Get<MqttService>("MQTTService"))?.Manager.ShowSubscribedTopics();
             string b = "";
             foreach (var str in a)
             {
