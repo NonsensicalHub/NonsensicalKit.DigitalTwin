@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 3189019748250197926}
   - component: {fileID: 3189019748250197925}
   m_Layer: 0
-  m_Name: MQTTManager
+  m_Name: MqttService
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

@@ -1,7 +1,11 @@
-using Cinemachine;
 using NonsensicalKit.Core;
 using UnityEngine;
 using UnityEngine.Serialization;
+#if UNITY_6000_0_OR_NEWER
+using Unity.Cinemachine;
+#else
+using Cinemachine;
+#endif
 
 namespace NonsensicalKit.DigitalTwin
 {

@@ -1,5 +1,9 @@
-using Cinemachine;
 using NonsensicalKit.Core;
+#if UNITY_6000_0_OR_NEWER
+using Unity.Cinemachine;
+#else
+using Cinemachine;
+#endif
 
 namespace NonsensicalKit.DigitalTwin
 {
