@@ -1,10 +1,12 @@
 using NonsensicalKit.Core;
 using UnityEngine;
 using UnityEngine.Serialization;
-#if UNITY_6000_0_OR_NEWER
+#if Cinemachine3
 using Unity.Cinemachine;
+using CinemachineCamera= Unity.Cinemachine.CinemachineCamera;
 #else
 using Cinemachine;
+using CinemachineCamera= Unity.Cinemachine.CinemachineVirtualCamera;
 #endif
 
 namespace NonsensicalKit.DigitalTwin
@@ -13,7 +15,7 @@ namespace NonsensicalKit.DigitalTwin
     /// 受刚体控制的飞行摄像机
     /// </summary>
     [RequireComponent(typeof(CharacterController))]
-    [RequireComponent(typeof(CinemachineVirtualCamera))]
+    [RequireComponent(typeof(CinemachineCamera))]
     public class FlyCamera : NonsensicalMono
     {
         /// <summary>
@@ -47,12 +49,12 @@ namespace NonsensicalKit.DigitalTwin
 
         private CharacterController _controller;
 
-        private CinemachineVirtualCamera _selfCamera;
+        private CinemachineCamera _selfCamera;
 
         private void Awake()
         {
             _controller = GetComponent<CharacterController>();
-            _selfCamera = GetComponent<CinemachineVirtualCamera>();
+            _selfCamera = GetComponent<CinemachineCamera>();
 
             Subscribe<string>("switchCamera", OnSwitchCamera);
         }

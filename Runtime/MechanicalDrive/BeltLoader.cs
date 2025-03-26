@@ -10,7 +10,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         [SerializeField] private float m_speedScale = 1;
 
         [ReorderableList]
-        private HashSet<Material> _materials = new();
+        private HashSet<RigidbodyMaterial> _materials = new();
 
         public void Move(float value)
         {
@@ -34,7 +34,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 
         private void OnCollisionEnter(Collision collision)
         {
-            if (collision.transform.TryGetComponent<Material>(out var v))
+            if (collision.transform.TryGetComponent<RigidbodyMaterial>(out var v))
             {
                 _materials.Add(v);
             }
@@ -42,7 +42,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 
         private void OnCollisionExit(Collision collision)
         {
-            if (collision.transform.TryGetComponent<Material>(out var v))
+            if (collision.transform.TryGetComponent<RigidbodyMaterial>(out var v))
             {
                 if (_materials.Contains(v))
                 {

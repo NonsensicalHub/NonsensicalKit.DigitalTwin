@@ -10,19 +10,19 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 
         private bool _sucking;
         private bool _suckingMaterial;
-        private Material _touchMaterial;
+        private RigidbodyMaterial _touchRigidbodyMaterial;
 
         private void OnTriggerEnter(Collider other)
         {
-            if (_touchMaterial == null)
+            if (_touchRigidbodyMaterial == null)
             {
-                if (other.gameObject.TryGetComponent<Material>(out var v))
+                if (other.gameObject.TryGetComponent<RigidbodyMaterial>(out var v))
                 {
-                    _touchMaterial = v;
+                    _touchRigidbodyMaterial = v;
                     if (_sucking && !v.Holding)
                     {
                         _suckingMaterial = true;
-                        _touchMaterial.Hold(this);
+                        _touchRigidbodyMaterial.Hold(this);
                     }
                 }
             }
@@ -30,13 +30,13 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 
         private void OnTriggerExit(Collider other)
         {
-            if (!_suckingMaterial && _touchMaterial != null)
+            if (!_suckingMaterial && _touchRigidbodyMaterial != null)
             {
-                if (other.gameObject.TryGetComponent<Material>(out var v))
+                if (other.gameObject.TryGetComponent<RigidbodyMaterial>(out var v))
                 {
-                    if (_touchMaterial == v)
+                    if (_touchRigidbodyMaterial == v)
                     {
-                        _touchMaterial = null;
+                        _touchRigidbodyMaterial = null;
                     }
                 }
             }
@@ -62,16 +62,16 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
             if (!_sucking)
             {
                 _sucking = true;
-                if (_touchMaterial != null)
+                if (_touchRigidbodyMaterial != null)
                 {
-                    if (!_touchMaterial.Holding)
+                    if (!_touchRigidbodyMaterial.Holding)
                     {
                         _suckingMaterial = true;
-                        _touchMaterial.Hold(this);
+                        _touchRigidbodyMaterial.Hold(this);
                     }
                     else
                     {
-                        _touchMaterial = null;
+                        _touchRigidbodyMaterial = null;
                     }
                 }
             }
@@ -85,8 +85,8 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
                 if (_suckingMaterial)
                 {
                     _suckingMaterial = false;
-                    _touchMaterial.Free();
-                    _touchMaterial = null;
+                    _touchRigidbodyMaterial.Free();
+                    _touchRigidbodyMaterial = null;
                 }
             }
         }

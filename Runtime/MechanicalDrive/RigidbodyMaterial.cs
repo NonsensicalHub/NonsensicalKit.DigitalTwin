@@ -7,9 +7,11 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         public Transform HoldPoint { get; }
     }
 
-    public class Material : MonoBehaviour
+    [RequireComponent(typeof(Rigidbody))]
+    public class RigidbodyMaterial : MonoBehaviour
     {
         [SerializeField] private Transform[] m_pos;
+        [SerializeField] private bool m_initStand;
 
         public bool Holding => _hold != null;
 
@@ -18,11 +20,19 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         private Quaternion _startRot;
 
         private IHoldMaterial _hold;
+        private bool _canMove;
 
         protected void Awake()
         {
             _rb = GetComponent<Rigidbody>();
-            Free();
+            if (m_initStand)
+            {
+                Stand();
+            }
+            else
+            {
+                Free();
+            }
         }
 
         private void Start()
@@ -43,7 +53,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
 
         public void Move(Vector3 offset)
         {
-            if (!Holding)
+            if (_canMove && !Holding)
             {
                 if (_rb.isKinematic)
                 {
@@ -51,7 +61,7 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
                 }
                 else
                 {
-                    _rb.velocity = offset / Time.deltaTime;
+                    SetVelocity(offset / Time.deltaTime);
                 }
             }
         }
@@ -59,31 +69,75 @@ namespace NonsensicalKit.DigitalTwin.MechanicalDrive
         public void SetPos(int index)
         {
             transform.position = m_pos[index].position;
+
+            gameObject.SetActive(true);
+        }
+
+        public void SetPos(int index, bool resetRotation )
+        {
+            transform.position = m_pos[index].position;
+            if (resetRotation)
+            {
+                transform.rotation = Quaternion.identity;
+            }
+
             gameObject.SetActive(true);
         }
 
         public void OnReset()
         {
             gameObject.SetActive(true);
-            _rb.velocity = Vector3.zero;
+            SetVelocity(Vector3.zero);
             transform.position = _startPos;
             transform.rotation = _startRot;
-            transform.parent = null;
+            transform.SetParent(null);
         }
 
         public void Free()
         {
+            _canMove = true;
             _hold = null;
             _rb.isKinematic = false;
-            transform.parent = null;
+            _rb.angularVelocity = Vector3.zero;
+            transform.SetParent(null);
+        }
+
+        /// <summary>
+        /// 停留在原地
+        /// </summary>
+        public void Stand()
+        {
+            _canMove = false;
+            _hold = null;
+            _rb.isKinematic = true;
+            transform.SetParent(null);
+            gameObject.SetActive(true);
+        }
+
+        public void StandWith(Transform parent)
+        {
+            _canMove = false;
+            _hold = null;
+            _rb.isKinematic = true;
+            transform.SetParent(parent);
+            gameObject.SetActive(true);
         }
 
         public void Hold(IHoldMaterial iHold)
         {
+            _canMove = false;
             _hold = iHold;
             _rb.isKinematic = true;
-            var v = iHold.HoldPoint;
-            transform.parent = v;
+            transform.SetParent(iHold.HoldPoint);
+        }
+
+        private void SetVelocity(Vector3 speed)
+        {
+#if UNITY_6000_0_OR_NEWER
+            _rb.linearVelocity = speed;
+#else
+            _rb.velocity = speed;
+#endif
         }
     }
 }

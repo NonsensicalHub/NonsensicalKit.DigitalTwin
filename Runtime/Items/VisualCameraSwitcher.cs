@@ -1,8 +1,11 @@
 using NonsensicalKit.Core;
-#if UNITY_6000_0_OR_NEWER
+
+#if Cinemachine3
 using Unity.Cinemachine;
+using CinemachineCamera= Unity.Cinemachine.CinemachineCamera;
 #else
 using Cinemachine;
+using CinemachineCamera= Unity.Cinemachine.CinemachineVirtualCamera;
 #endif
 
 namespace NonsensicalKit.DigitalTwin
@@ -12,21 +15,21 @@ namespace NonsensicalKit.DigitalTwin
     /// </summary>
     public class VisualCameraSwitcher : MonoSingleton<VisualCameraSwitcher>
     {
-        private CinemachineVirtualCamera _laseCamera;
+        private CinemachineCamera _laseCamera;
 
         protected override void Awake()
         {
             base.Awake();
 
-            Subscribe<CinemachineVirtualCamera>("switchVirtualCamera", OnSwitchCamera);
+            Subscribe<CinemachineCamera>("switchVirtualCamera", OnSwitchCamera);
         }
 
-        public void SwitchCamera(CinemachineVirtualCamera newCamera)
+        public void SwitchCamera(CinemachineCamera newCamera)
         {
             OnSwitchCamera(newCamera);
         }
 
-        private void OnSwitchCamera(CinemachineVirtualCamera newCamera)
+        private void OnSwitchCamera(CinemachineCamera newCamera)
         {
             if (_laseCamera)
             {
