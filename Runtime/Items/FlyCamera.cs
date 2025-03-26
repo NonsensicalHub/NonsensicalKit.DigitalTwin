@@ -6,7 +6,7 @@ using Unity.Cinemachine;
 using CinemachineCamera= Unity.Cinemachine.CinemachineCamera;
 #else
 using Cinemachine;
-using CinemachineCamera= Unity.Cinemachine.CinemachineVirtualCamera;
+using CinemachineCamera= Cinemachine.CinemachineVirtualCamera;
 #endif
 
 namespace NonsensicalKit.DigitalTwin
