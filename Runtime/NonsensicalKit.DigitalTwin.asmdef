@@ -8,7 +8,8 @@
         "Cinemachine",
         "NonsensicalKit.WebGL.Editor",
         "NonsensicalKit.WebGL",
-        "Unity.Cinemachine"
+        "Unity.Cinemachine",
+        "SocketIOUnityAssembly"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
