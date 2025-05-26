@@ -60,14 +60,14 @@ namespace NonsensicalKit
                     yield break;
                 }
                 int crtIndex = 0;
-                long baseTicks = _records[0][0].ticks;
+                long baseTicks = _records[0][0].Ticks;
                 float timer = 0;
                 while (crtIndex < _records.Count)
                 {
                     while (crtIndex < _records.Count)
                     {
                         var v = _records[crtIndex];
-                        if (((v[0].ticks - baseTicks) / 1000f) > timer)
+                        if (((v[0].Ticks - baseTicks) / 1000f) > timer)
                         {
                             break;
                         }
@@ -129,14 +129,14 @@ namespace NonsensicalKit
             for (int i = 0; i < points.Count; i++)
             {
                 PointData p = points[i];
-                if (p == null || p.value == null)
+                if (p == null || p.Value == null)
                 {
 
                     points.RemoveAt(i);
                     i--;
                     continue;
                 }
-                if (p.value.ToString().Length > 5 && p.value.ToString().Substring(0, 5) == "Redis")
+                if (p.Value.ToString().Length > 5 && p.Value.ToString().Substring(0, 5) == "Redis")
                 {
                     points.RemoveAt(i);
                     i--;

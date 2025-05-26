@@ -1,11 +1,10 @@
 using NonsensicalKit.Core;
-
 #if Cinemachine3
-using Unity.Cinemachine;
-using CinemachineCamera= Unity.Cinemachine.CinemachineCamera;
+using CinemachineCamera = Unity.Cinemachine.CinemachineCamera;  //cinemachine3.0版本后命名空间改变
+
 #else
 using Cinemachine;
-using CinemachineCamera= Cinemachine.CinemachineVirtualCamera;
+using CinemachineCamera = Cinemachine.CinemachineVirtualCamera;
 #endif
 
 namespace NonsensicalKit.DigitalTwin
@@ -15,6 +14,9 @@ namespace NonsensicalKit.DigitalTwin
     /// </summary>
     public class VisualCameraSwitcher : MonoSingleton<VisualCameraSwitcher>
     {
+        public int LastPriority { get; set; } = 10;
+        public int CurrentPriority { get; set; } = 20;
+
         private CinemachineCamera _laseCamera;
 
         protected override void Awake()
@@ -33,10 +35,10 @@ namespace NonsensicalKit.DigitalTwin
         {
             if (_laseCamera)
             {
-                _laseCamera.Priority = 10;
+                _laseCamera.Priority = LastPriority;
             }
 
-            newCamera.Priority = 11;
+            newCamera.Priority = CurrentPriority;
 
             _laseCamera = newCamera;
         }
