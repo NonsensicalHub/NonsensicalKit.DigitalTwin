@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using NonsensicalKit.Core;
+using NonsensicalKit.Core.Log;
 using NonsensicalKit.Core.Service;
+using NonsensicalKit.Core.Service.Config;
 using UnityEngine;
 
 namespace NonsensicalKit.DigitalTwin.Motion
@@ -13,6 +15,8 @@ namespace NonsensicalKit.DigitalTwin.Motion
     /// </summary>
     public class DataHub : NonsensicalMono, IMonoService
     {
+        [Tooltip("是否使用配置初始化Part")] [SerializeField]
+        private bool m_useConfigInit=true;
         [Tooltip("单点位修改模式")]  [SerializeField]
         private bool m_singlePointMode;     //一个部件只要有一个点位修改就更新状态
         [Tooltip("首次接收到未配置过的点位时输出日志")] [SerializeField]
@@ -44,8 +48,32 @@ namespace NonsensicalKit.DigitalTwin.Motion
             Subscribe<IEnumerable<PartConfig>>("InitPartConfig", InitPartConfig); //初始化配置
             Subscribe<IEnumerable<PointData>>("ReceivePoints", ReceivePoints); //接受到一组数据
             Subscribe<PointData>("ReceivePoint", ReceivePoint); //接收到单个数据
-            IsReady = true;
-            InitCompleted?.Invoke();
+            
+            if (m_useConfigInit)
+            {
+                ServiceCore.SafeGet<ConfigService>(OnGetConfig);
+            }
+            else
+            {
+                IsReady = true;
+                InitCompleted?.Invoke();
+            }
+        }
+
+        private void OnGetConfig(ConfigService manager)
+        {
+            ConfigService configManager = manager;
+            if (configManager.TryGetConfigs<PartConfig>(out var configs))
+            {
+                InitPartConfig(configs);
+                
+                IsReady = true;
+                InitCompleted?.Invoke();
+            }
+            else
+            {
+                LogCore.Debug("未配置数据点位数据");
+            }
         }
 
         public void InitPartConfig(IEnumerable<PartConfig> configs)
@@ -54,7 +82,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
 
             foreach (var config in configs)
             {
-                string partID = config.ConfigID;
+                string partID = config.partID;
                 if (_partPointsPair.ContainsKey(partID))
                 {
                     errorID.Add("重复的部件ID" + partID);

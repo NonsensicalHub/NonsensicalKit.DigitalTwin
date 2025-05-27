@@ -9,7 +9,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
     /// </summary>
     public class ManualSetMaterialsPartMotion : PartMotionBase
     {
-       [SerializeField] private HalfPhysicalMaterials m_materialsPrefab;
+       [SerializeField] private PhysicalMaterials m_materialsPrefab;
 
         protected override void Init()
         {

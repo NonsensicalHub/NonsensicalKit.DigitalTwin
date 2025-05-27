@@ -3,15 +3,15 @@ using UnityEngine.Events;
 
 namespace NonsensicalKit.DigitalTwin.Motion
 {
-    public class HalfPhysicalCollisionArea : MonoBehaviour
+    public class PhysicalCollisionArea : MonoBehaviour
     {
-        [SerializeField] private UnityEvent<HalfPhysicalMaterials> m_onMaterialsEnter = new();
+        [SerializeField] private UnityEvent<PhysicalMaterials> m_onMaterialsEnter = new();
 
-        [SerializeField] private UnityEvent<HalfPhysicalMaterials> m_onMaterialsExit = new();
+        [SerializeField] private UnityEvent<PhysicalMaterials> m_onMaterialsExit = new();
 
-        public UnityEvent<HalfPhysicalMaterials> OnMaterialsEnter => m_onMaterialsEnter;
+        public UnityEvent<PhysicalMaterials> OnMaterialsEnter => m_onMaterialsEnter;
 
-        public UnityEvent<HalfPhysicalMaterials> OnMaterialsExit => m_onMaterialsExit;
+        public UnityEvent<PhysicalMaterials> OnMaterialsExit => m_onMaterialsExit;
 
         private void Awake()
         {
@@ -29,12 +29,12 @@ namespace NonsensicalKit.DigitalTwin.Motion
             m_onMaterialsExit.RemoveAllListeners();
         }
 
-        public void MaterialsEnter(HalfPhysicalMaterials materials)
+        public void MaterialsEnter(PhysicalMaterials materials)
         {
             m_onMaterialsEnter?.Invoke(materials);
         }
 
-        public void MaterialsExit(HalfPhysicalMaterials materials)
+        public void MaterialsExit(PhysicalMaterials materials)
         {
             m_onMaterialsExit?.Invoke(materials);
         }

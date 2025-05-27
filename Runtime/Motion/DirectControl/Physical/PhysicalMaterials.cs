@@ -2,8 +2,10 @@ using UnityEngine;
 
 namespace NonsensicalKit.DigitalTwin.Motion
 {
-    public class HalfPhysicalMaterials : MonoBehaviour
+    public class PhysicalMaterials : MonoBehaviour
     {
+        [SerializeField] private bool m_isKinematic;
+
         private bool _isRunning;
 
         private Rigidbody _rb;
@@ -18,8 +20,11 @@ namespace NonsensicalKit.DigitalTwin.Motion
             if (TryGetComponent(out _rb) == false)
             {
                 _rb = gameObject.AddComponent<Rigidbody>();
-                _rb.useGravity = false;
-                _rb.isKinematic = true;
+                if (m_isKinematic)
+                {
+                    _rb.useGravity = false;
+                    _rb.isKinematic = true;
+                }
             }
 
             if (GetComponent<Collider>() == null)
@@ -67,22 +72,45 @@ namespace NonsensicalKit.DigitalTwin.Motion
             this._offset += offset;
         }
 
-        protected  void OnCollisionEnter(Collision collision)
+
+        private void OnCollisionEnter(Collision other)
         {
             if (_isRunning)
             {
-                if (collision.transform.TryGetComponent<HalfPhysicalCollisionArea>(out var hpc))
+                if (other.transform.TryGetComponent<PhysicalCollisionArea>(out var hpc))
                 {
                     hpc.MaterialsEnter(this);
                 }
             }
         }
 
-        protected  void OnCollisionExit(Collision collision)
+        private void OnCollisionExit(Collision other)
         {
             if (_isRunning)
             {
-                if (collision.transform.TryGetComponent<HalfPhysicalCollisionArea>(out var hpc))
+                if (other.transform.TryGetComponent<PhysicalCollisionArea>(out var hpc))
+                {
+                    hpc.MaterialsExit(this);
+                }
+            }
+        }
+
+        private void OnTriggerEnter(Collider other)
+        {
+            if (_isRunning)
+            {
+                if (other.transform.TryGetComponent<PhysicalCollisionArea>(out var hpc))
+                {
+                    hpc.MaterialsEnter(this);
+                }
+            }
+        }
+
+        private void OnTriggerExit(Collider other)
+        {
+            if (_isRunning)
+            {
+                if (other.transform.TryGetComponent<PhysicalCollisionArea>(out var hpc))
                 {
                     hpc.MaterialsExit(this);
                 }

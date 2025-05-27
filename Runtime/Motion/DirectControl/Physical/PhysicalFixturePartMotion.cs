@@ -4,15 +4,15 @@ using UnityEngine;
 
 namespace NonsensicalKit.DigitalTwin.Motion
 {
-    public class HalfPhysicalFixturePartMotion : PartMotionBase
+    public class PhysicalFixturePartMotion : PartMotionBase
     {
-        [SerializeField] private HalfPhysicalCollisionArea m_area1;
-        [SerializeField] private HalfPhysicalCollisionArea m_area2;
+        [SerializeField] private PhysicalCollisionArea m_area1;
+        [SerializeField] private PhysicalCollisionArea m_area2;
         [SerializeField] private Dir m_dir1Type;
         [SerializeField] private Dir m_dir2Type;
         [SerializeField] private float m_distance;
 
-        private HalfPhysicalMaterials _touchMaterials;
+        private PhysicalMaterials _touchMaterials;
         private bool _isClamping;
 
         private Vector3 _startPos1;
@@ -89,7 +89,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
             m_area2.transform.localPosition = Vector3.Lerp(_startPos2, _endPos2, last);
         }
 
-        private void OnFixtureEnter(HalfPhysicalMaterials hpm)
+        private void OnFixtureEnter(PhysicalMaterials hpm)
         {
             if (_touchMaterials == null)
             {
@@ -102,7 +102,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
             }
         }
 
-        private void OnFixtureExit(HalfPhysicalMaterials hpm)
+        private void OnFixtureExit(PhysicalMaterials hpm)
         {
             if (!_isClamping && hpm == _touchMaterials)
             {
@@ -110,13 +110,13 @@ namespace NonsensicalKit.DigitalTwin.Motion
             }
         }
 
-        private void Clamp(HalfPhysicalMaterials hpm)
+        private void Clamp(PhysicalMaterials hpm)
         {
             hpm.transform.SetParent(transform);
             hpm.Fixed(true);
         }
 
-        private void Release(HalfPhysicalMaterials hpm)
+        private void Release(PhysicalMaterials hpm)
         {
             hpm.transform.SetParent(null);
             hpm.Fixed(false);

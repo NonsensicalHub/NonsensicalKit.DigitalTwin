@@ -3,11 +3,11 @@ using UnityEngine;
 
 namespace NonsensicalKit.DigitalTwin.Motion
 {
-    public class HalfPhysicalConveyorBeltsStopperMotion : PartMotionBase
+    public class PhysicalConveyorBeltsStopperMotion : PartMotionBase
     {
-        [SerializeField] private HalfPhysicalCollisionArea m_area;
+        [SerializeField] private PhysicalCollisionArea m_area;
 
-        public List<HalfPhysicalMaterials> Materials { get; private set; } = new List<HalfPhysicalMaterials>();
+        public List<PhysicalMaterials> Materials { get; private set; } = new List<PhysicalMaterials>();
 
         public bool Stopping { get; set; }
 

@@ -7,9 +7,9 @@ namespace NonsensicalKit.DigitalTwin.Motion
     {
         [SerializeField] private Dir m_dirType;
         [SerializeField] private float m_conversionRate = 1; //转换率，当为1时，数据为0.1代表速度为0.1m/s
-        [SerializeField] private HalfPhysicalCollisionArea m_area;
+        [SerializeField] private PhysicalCollisionArea m_area;
 
-        private readonly List<HalfPhysicalMaterials> _materials = new();
+        private readonly List<PhysicalMaterials> _materials = new();
         private float _speed;
         private bool _isRunning;
 

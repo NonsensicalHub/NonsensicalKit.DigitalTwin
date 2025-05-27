@@ -7,7 +7,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
     /// <summary>
     /// 支持单向或双向的半物理传送带
     /// </summary>
-    public class HalfPhysicalConveyorBeltsPartMotion : PartMotionBase
+    public class PhysicalConveyorBeltsPartMotion : PartMotionBase
     {
         /// <summary>
         /// 方向1类型
@@ -21,12 +21,11 @@ namespace NonsensicalKit.DigitalTwin.Motion
 
         [SerializeField] private float m_conversionRate = 1; //转换率，当为1时，数据为0.1代表速度为0.1m/s
 
-        public HalfPhysicalCollisionArea m_Area;
+        public PhysicalCollisionArea m_Area;
 
-        [FormerlySerializedAs("m_TwoDir")] [SerializeField]
-        private bool m_twoDir = true;
+       [SerializeField]  private bool m_twoDir = true;
 
-        private readonly List<HalfPhysicalMaterials> _materials = new();
+        private readonly List<PhysicalMaterials> _materials = new();
         private float _speed1;
         private float _speed2;
         private bool _isRunning;
