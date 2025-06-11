@@ -13,8 +13,23 @@ namespace NonsensicalKit.DigitalTwin.Motion
     /// <summary>
     /// 收集数据并缓存，然后在合适的时机进行分发
     /// </summary>
+    [ServicePrefab("Services/DataHub")]
     public class DataHub : NonsensicalMono, IMonoService
     {
+        public static DataHub Instance
+        {
+            get
+            {
+                if (_instance==null)
+                {
+                    _instance = ServiceCore.Get<DataHub>();
+                }
+                return _instance;
+            }
+        }
+
+        private static DataHub _instance;
+        
         [Tooltip("是否使用配置初始化Part")] [SerializeField]
         private bool m_useConfigInit=true;
         [Tooltip("单点位修改模式")]  [SerializeField]
@@ -42,6 +57,10 @@ namespace NonsensicalKit.DigitalTwin.Motion
         /// 每次报警后缓存点位，防止重复报警
         /// </summary>
         private readonly HashSet<string> _loggedPoints = new();
+        
+        
+        private readonly HashSet<string> _catchIDs = new HashSet<string>();
+        private bool _catching;
 
         private void Awake()
         {
@@ -136,7 +155,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
         public void ReceivePoints(IEnumerable<PointData> points)
         {
             //使用set防止重复调用事件
-            HashSet<string> IDs = new HashSet<string>();
+            HashSet<string> IDs =_catching?_catchIDs: new HashSet<string>();
 
             foreach (var point in points)
             {
@@ -164,7 +183,10 @@ namespace NonsensicalKit.DigitalTwin.Motion
                 }
             }
 
-            CheckParts(IDs.ToList());
+            if (!_catching)
+            {
+                CheckParts(IDs.ToList());
+            }
         }
 
         /// <summary>
@@ -180,9 +202,13 @@ namespace NonsensicalKit.DigitalTwin.Motion
                 {
                     _partPointsPair[partID][pointID].Fresh = true;
                     _partPointsPair[partID][pointID].Data = pointData;
+                    if (_catching) _catchIDs.Add(partID);
                 }
 
-                CheckParts(partIDs);
+                if (!_catching)
+                {
+                    CheckParts(partIDs);
+                }
             }
             else
             {
@@ -193,6 +219,22 @@ namespace NonsensicalKit.DigitalTwin.Motion
             }
         }
 
+        /// <summary>
+        /// 收到数据不再直接检测和发送，而是缓存起来，等到Flush时一次性检测和发送
+        /// </summary>
+        public void Catch()
+        {
+            _catching = true;
+            
+        }
+
+        public void Flush()
+        {
+            _catching = false;
+            CheckParts(_catchIDs.ToList());
+            _catchIDs.Clear();
+        }
+        
         /// <summary>
         /// 检测part中的数据是否是都是新鲜的，新鲜的话就调用事件
         /// 单点位修改模式下改为检测是否至少有一个点位更新
@@ -213,6 +255,11 @@ namespace NonsensicalKit.DigitalTwin.Motion
                         if (pair.Value.Fresh )
                         {
                             flag = true;
+                        }
+
+                        if (pair.Value.Data==null)
+                        {
+                            flag = false;
                             break;
                         }
                     }
