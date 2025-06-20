@@ -54,12 +54,13 @@ namespace NonsensicalKit.DigitalTwin.MQTT
                 });
             if (IsWebSocketConnectionType)
             {
-                builder .WithWebSocketServer(o => o.WithUri($"{MQTTPrefix}{MQTTURI}:{MQTTPort}{MQTTSuffix}"));
+                builder.WithWebSocketServer(o => o.WithUri($"{MQTTPrefix}{MQTTURI}:{MQTTPort}{MQTTSuffix}"));
             }
             else
             {
                 builder.WithTcpServer($"{MQTTPrefix}{MQTTURI}", MQTTPort);
             }
+
             Debug.Log($"{MQTTPrefix}{MQTTURI}:{MQTTPort}{MQTTSuffix}");
 
             MqttClientOptions clientOptions = builder.Build();
@@ -99,6 +100,8 @@ namespace NonsensicalKit.DigitalTwin.MQTT
             if (m_log) Debug.Log("客户端收到消息：" + arg.ApplicationMessage.Topic + "=====" + str);
 
             MessageReceived?.Invoke(arg.ApplicationMessage.Topic, str);
+            Publish("MQTTReceiveData", arg.ApplicationMessage.Topic, str);
+            Publish("MQTTReceiveData", MQTTURI, arg.ApplicationMessage.Topic, str);
 
             return Task.CompletedTask;
         }

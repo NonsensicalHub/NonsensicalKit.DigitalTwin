@@ -1,5 +1,4 @@
 #if !UNITY_EDITOR&&UNITY_WEBGL
-using System;
 using System.Collections.Generic;
 using NonsensicalKit.Core;
 using NonsensicalKit.WebGL;
@@ -14,23 +13,24 @@ namespace NonsensicalKit.DigitalTwin.MQTT
 
         public partial void Run()
         {
-            _clientID = Guid.NewGuid().ToString();
-
             Subscribe("MQTTInitCompleted", Init);
-            Subscribe("MQTTConnectSuccess", OnWebMQTTConnectSuccess);
+            Subscribe<string, string>("MQTTConnectSuccess", OnWebMQTTConnectSuccess);
         }
 
         private partial void OnApplicationQuit()
         {
             if (PlatformInfo.IsWebGL)
             {
-                WebMQTT.Instance.Close();
+                WebMQTT.Instance.CloseAll();
             }
         }
 
         protected virtual void Init()
         {
-            if (m_log) Debug.Log("InitWebMQTT: WebMQTT.Instance == null :" + WebMQTT.Instance == null);
+            if (m_log) Debug.Log("InitWebMQTT: WebMQTT.Instance == null :" + (WebMQTT.Instance == null));
+
+
+            WebMQTT.Instance.Connect($"{MQTTPrefix}{MQTTURI}:{MQTTPort}/mqtt", MQTTUser, MQTTPassword);
 
             _connected = true;
             foreach (var topic in _buffer)
@@ -38,20 +38,22 @@ namespace NonsensicalKit.DigitalTwin.MQTT
                 SubscribeAsync(topic);
             }
 
-            WebMQTT.Instance.Connect($"{MQTTPrefix}{MQTTURI}:{MQTTPort}/mqtt", MQTTUser, MQTTPassword);
-
             IOCC.Subscribe<string, string>("MQTTMessage", OnWebMQTTMessageReceived);
         }
 
-        private void OnWebMQTTMessageReceived(string toipc, string message)
+        private void OnWebMQTTMessageReceived(string topic, string message)
         {
-            if (m_log) Debug.Log("客户端收到消息：" + toipc + "=====" + message);
-            MessageReceived?.Invoke(toipc, message);
+            if (m_log) Debug.Log("客户端收到消息：" + topic + "=====" + message);
+            MessageReceived?.Invoke(topic, message);
         }
 
-        private void OnWebMQTTConnectSuccess()
+        private void OnWebMQTTConnectSuccess(string url, string clientId)
         {
+            if (url != MQTTURI) return;
+
             if (m_log) Debug.Log("MQTTMessageConnectSuccess");
+
+            _clientID = clientId;
             _status = MQTTStatus.Connected;
         }
 
@@ -60,7 +62,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
         public void PublishAsync(string topic, string message)
         {
             if (m_log) Debug.Log($"客户端发布：Published message: {message} to topic: {topic}");
-            WebMQTT.Instance.SendMessage(topic, message);
+            WebMQTT.Instance.SendMessage(MQTTURI, topic, message);
         }
 
         #endregion
@@ -75,7 +77,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
             }
             else
             {
-                WebMQTT.Instance.Subscribe(topic);
+                WebMQTT.Instance.Subscribe(MQTTURI, topic);
                 if (m_recordTopic == false || _subscribeTopics.Contains(topic)) return;
                 _subscribeTopics.Add(topic);
             }
@@ -94,7 +96,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
             {
                 foreach (var topic in topics)
                 {
-                    WebMQTT.Instance.Subscribe(topic);
+                    WebMQTT.Instance.Subscribe(MQTTURI, topic);
                 }
 
                 if (m_recordTopic)
@@ -118,7 +120,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
         {
             foreach (var topic in topics)
             {
-                WebMQTT.Instance.Unsubscribe(topic);
+                WebMQTT.Instance.Unsubscribe(MQTTURI, topic);
             }
 
             if (m_recordTopic)

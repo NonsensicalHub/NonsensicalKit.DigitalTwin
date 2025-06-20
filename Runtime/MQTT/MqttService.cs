@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using NaughtyAttributes;
 using NonsensicalKit.Core;
 using NonsensicalKit.Core.Service;
@@ -13,44 +14,43 @@ namespace NonsensicalKit.DigitalTwin.MQTT
     [ServicePrefab("Services/MqttService")]
     public class MqttService : NonsensicalMono, IMonoService
     {
-        [SerializeField, BoxGroup("MQTT链接")] private string m_mqttPrefix = "ws://";
-        [SerializeField, BoxGroup("MQTT链接")] private string m_mqtturi = "broker.emqx.io";
-        [SerializeField, BoxGroup("MQTT链接")] private int m_mqttPort = 1883;
-        [SerializeField, BoxGroup("MQTT链接")] private string m_mqttSuffix;
-        [SerializeField, BoxGroup("MQTT链接")] private bool m_isWebSocketConnectionType;
-        [SerializeField, BoxGroup("MQTT链接")] private string m_mqttUser = "";
-        [SerializeField, BoxGroup("MQTT链接")] private string m_mqttPassword = "";
-
-        [SerializeField] private bool m_log;
-
         [SerializeField, Label("重连间隔时间(s)")] private float m_reconnectGapTime = 10;
+        [SerializeField] private bool m_log;
         [SerializeField] private bool m_useTls;
 
         public bool IsReady { get; private set; }
         public Action InitCompleted { get; set; }
 
-        public MqttManager Manager;
+        public Dictionary<string, MqttManager> Managers { get; private set; } = new();
+        public MqttManager Manager { get; private set; }
 
         private void Awake()
         {
             IsReady = true;
-            Init();
+            ServiceCore.SafeGet<ConfigService>(Init);
         }
 
-        private void Init()
+        private void Init(ConfigService configService)
         {
-            Manager= gameObject.AddComponent<MqttManager>();
-            Manager.MQTTPrefix = m_mqttPrefix;
-            Manager.MQTTURI = m_mqtturi;
-            Manager.MQTTPort = m_mqttPort;
-            Manager.MQTTSuffix = m_mqttSuffix;
-            Manager.IsWebSocketConnectionType = m_isWebSocketConnectionType;
-            Manager.MQTTUser = m_mqttUser;
-            Manager.MQTTPassword = m_mqttPassword;
-            Manager.m_log = m_log;
-            Manager.m_useTLS = m_useTls;
-            Manager.ReconnectGapTime = m_reconnectGapTime;
-            Manager.Run();
+            var configs = configService.GetConfigs<MqttClientConfigData>();
+
+            foreach (var config in configs)
+            {
+                var manager = gameObject.AddComponent<MqttManager>();
+                manager.MQTTPrefix = config.m_MqttPrefix;
+                manager.MQTTURI = config.m_MqttUri;
+                manager.MQTTPort = config.m_MqttPort;
+                manager.MQTTSuffix = config.m_MqttSuffix;
+                manager.IsWebSocketConnectionType = config.m_IsWebSocketConnectionType;
+                manager.MQTTUser = config.m_MqttUser;
+                manager.MQTTPassword = config.m_MqttPassword;
+                manager.m_log = m_log;
+                manager.m_useTLS = m_useTls;
+                manager.ReconnectGapTime = m_reconnectGapTime;
+                manager.Run();
+                Manager ??= manager;
+                Managers[config.ConfigID] = manager;
+            }
         }
     }
 
