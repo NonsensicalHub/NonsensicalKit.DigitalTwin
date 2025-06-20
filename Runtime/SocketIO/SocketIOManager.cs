@@ -1,12 +1,15 @@
+using System;
+using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 using NonsensicalKit.Core;
 using NonsensicalKit.Core.Log;
-using NonsensicalKit.WebGL;
 using SocketIOClient;
 using SocketIOClient.Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
+using SocketIOClient.Transport;
 using UnityEngine;
+#if NonsensicalkitWebgl
+using NonsensicalKit.WebGL;
+#endif
 
 namespace NonsensicalKit
 {
@@ -19,7 +22,13 @@ namespace NonsensicalKit
 
         private void Awake()
         {
-            _ID = Guid.NewGuid().ToString(); 
+#if UNITY_EDITOR&&! NonsensicalkitWebgl
+            if (PlatformInfo.IsWebGL)   
+            {
+                Debug.LogError("在WebGL平台使用SocketIOManager需要导入NonsensicalKit.Webgl包");
+            }
+#endif
+            _ID = Guid.NewGuid().ToString();
         }
 
         protected override void OnDestroy()
@@ -33,11 +42,12 @@ namespace NonsensicalKit
 
         public void Init(SocketIOConfigData data)
         {
-            if (data==null)
+            if (data == null)
             {
                 LogCore.Error("不能使用空数据进行初始化");
                 return;
             }
+
             _autoSendMessage = data.AutoSend;
             Subscribe<string, string>("socketIOEmit", Emit);
             if (PlatformInfo.IsEditor)
@@ -45,18 +55,16 @@ namespace NonsensicalKit
                 _socketIO = new SocketIOUnity(new Uri(data.SocketIOUrl), new SocketIOOptions
                 {
                     Query = new Dictionary<string, string>
-                {
-                    {"token", "UNITY" }
-                }
-                    ,
-                    EIO = 4
-                    ,
-                    Transport = SocketIOClient.Transport.TransportProtocol.WebSocket
+                    {
+                        { "token", "UNITY" }
+                    },
+                    EIO = 4,
+                    Transport = TransportProtocol.WebSocket
                 });
                 _socketIO.JsonSerializer = new NewtonsoftJsonSerializer();
 
                 Debug.Log("Connecting...");
-                AddListener("relay_u3d_data");  //四楼产线固定事件
+                AddListener("relay_u3d_data"); //四楼产线固定事件
                 _socketIO.OnConnected += OnConnected;
                 _socketIO.Connect();
                 //socket.OnAnyInUnityThread((name, response) =>
@@ -67,10 +75,13 @@ namespace NonsensicalKit
             else
             {
                 Debug.Log("开始连接SocketIO");
+
+#if NonsensicalkitWebgl
                 WebSocketIO.Instance.ConnectSocketIO(data.SocketIOUrl);
                 WebSocketIO.Instance.SocketIOAddListener("relay_u3d_data"); //四楼产线固定事件
                 WebSocketIO.Instance.SocketIOAddListener("connect");
                 Subscribe<string, string>("socketIOMessage", OnReceiveMsg);
+#endif
             }
 
             foreach (var item in data.EventNames)
@@ -79,7 +90,7 @@ namespace NonsensicalKit
             }
         }
 
-        private void OnConnected(object n,EventArgs r)
+        private void OnConnected(object n, EventArgs r)
         {
             Debug.Log("Connected");
             AutoSend();
@@ -89,7 +100,7 @@ namespace NonsensicalKit
         {
             foreach (var item in _autoSendMessage)
             {
-                Emit(item.Key,item.Value);
+                Emit(item.Key, item.Value);
             }
         }
 
@@ -106,7 +117,9 @@ namespace NonsensicalKit
             }
             else
             {
+#if NonsensicalkitWebgl
                 WebSocketIO.Instance.SocketIOAddListener(eventName);
+#endif
             }
         }
 
@@ -126,13 +139,16 @@ namespace NonsensicalKit
             }
             else
             {
+#if NonsensicalkitWebgl
                 WebSocketIO.Instance.SocketIOSendMessageWithCallback(eventName, msg);
+#endif
             }
         }
 
         private bool IsJSON(string str)
         {
             if (string.IsNullOrWhiteSpace(str)) { return false; }
+
             str = str.Trim();
             if ((str.StartsWith("{") && str.EndsWith("}")) || //For object
                 (str.StartsWith("[") && str.EndsWith("]"))) //For array
@@ -160,14 +176,14 @@ namespace NonsensicalKit
             {
                 AutoSend();
             }
+
             PublishData(key, value);
         }
 
         private void PublishData(string key, string value)
         {
             //Debug.Log("socektIOMessage:" + key + "_" + value);
-            PublishWithID("socketIOMsg",key, value);
+            PublishWithID("socketIOMsg", key, value);
         }
     }
-
 }

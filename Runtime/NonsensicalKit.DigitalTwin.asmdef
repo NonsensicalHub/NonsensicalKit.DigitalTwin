@@ -23,6 +23,11 @@
             "name": "com.unity.cinemachine",
             "expression": "3.0",
             "define": "Cinemachine3"
+        },
+        {
+            "name": "com.nonsensicallab.nonsensicalkit.webgl",
+            "expression": "0.0.1",
+            "define": "NonsensicalkitWebgl"
         }
     ],
     "noEngineReferences": false

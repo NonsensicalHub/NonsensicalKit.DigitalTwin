@@ -59,7 +59,6 @@ namespace NonsensicalKit.DigitalTwin.Motion
         /// </summary>
         protected virtual void Init()
         {
-            Debug.Log(m_partID);
             Subscribe<List<PointData>>("MotionPartUpdate", m_partID, OnReceiveData);
         }
 
