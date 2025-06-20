@@ -11,6 +11,8 @@ namespace NonsensicalKit.DigitalTwin.MQTT
         public string MQTTPrefix = "ws://";
         public string MQTTURI = "broker.emqx.io";
         public int MQTTPort = 1883;
+        public string MQTTSuffix;
+        public bool IsWebSocketConnectionType;
         public string MQTTUser = "";
         public string MQTTPassword = "";
 

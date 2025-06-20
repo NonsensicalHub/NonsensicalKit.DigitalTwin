@@ -45,7 +45,6 @@ namespace NonsensicalKit.DigitalTwin.MQTT
         private void Init()
         {
             MqttClientOptionsBuilder builder = new MqttClientOptionsBuilder()
-                .WithTcpServer(MQTTURI, MQTTPort) // 要访问的mqtt服务端的 ip 和 端口号
                 .WithCredentials(MQTTUser, MQTTPassword) // 要访问的mqtt服务端的用户名和密码
                 .WithClientId(_clientID) // 设置客户端id
                 .WithCleanSession()
@@ -53,6 +52,15 @@ namespace NonsensicalKit.DigitalTwin.MQTT
                 {
                     UseTls = m_useTLS
                 });
+            if (IsWebSocketConnectionType)
+            {
+                builder .WithWebSocketServer(o => o.WithUri($"{MQTTPrefix}{MQTTURI}:{MQTTPort}{MQTTSuffix}"));
+            }
+            else
+            {
+                builder.WithTcpServer($"{MQTTPrefix}{MQTTURI}", MQTTPort);
+            }
+            Debug.Log($"{MQTTPrefix}{MQTTURI}:{MQTTPort}{MQTTSuffix}");
 
             MqttClientOptions clientOptions = builder.Build();
             _client = new MqttFactory().CreateMqttClient();
@@ -116,6 +124,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
         private Task Client_ConnectedAsync(MqttClientConnectedEventArgs arg)
         {
             _status = MQTTStatus.Connected;
+            Debug.Log("MQTT已连接:  " + MQTTURI);
             foreach (var item in _buffer)
             {
                 SubscribeAsync(item.Key, item.Value);

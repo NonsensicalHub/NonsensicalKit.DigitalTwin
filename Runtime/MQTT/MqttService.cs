@@ -16,6 +16,8 @@ namespace NonsensicalKit.DigitalTwin.MQTT
         [SerializeField, BoxGroup("MQTT链接")] private string m_mqttPrefix = "ws://";
         [SerializeField, BoxGroup("MQTT链接")] private string m_mqtturi = "broker.emqx.io";
         [SerializeField, BoxGroup("MQTT链接")] private int m_mqttPort = 1883;
+        [SerializeField, BoxGroup("MQTT链接")] private string m_mqttSuffix;
+        [SerializeField, BoxGroup("MQTT链接")] private bool m_isWebSocketConnectionType;
         [SerializeField, BoxGroup("MQTT链接")] private string m_mqttUser = "";
         [SerializeField, BoxGroup("MQTT链接")] private string m_mqttPassword = "";
 
@@ -31,7 +33,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
 
         private void Awake()
         {
-            IsReady = false;
+            IsReady = true;
             Init();
         }
 
@@ -41,6 +43,8 @@ namespace NonsensicalKit.DigitalTwin.MQTT
             Manager.MQTTPrefix = m_mqttPrefix;
             Manager.MQTTURI = m_mqtturi;
             Manager.MQTTPort = m_mqttPort;
+            Manager.MQTTSuffix = m_mqttSuffix;
+            Manager.IsWebSocketConnectionType = m_isWebSocketConnectionType;
             Manager.MQTTUser = m_mqttUser;
             Manager.MQTTPassword = m_mqttPassword;
             Manager.m_log = m_log;
