@@ -26,7 +26,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
         [field:SerializeField, ReadOnly,Label("重连间隔时间(s)")] public float ReconnectGapTime  { get; set; }= 10;
         [field:SerializeField, ReadOnly]  public bool UseTLS { get; set; }
 
-        private Dictionary<string, MqttQualityOfServiceLevel>  SubscribeTopics  { get; }= new ();
+        private Dictionary<string, MqttQualityOfServiceLevel>  SubscribeTopics  { get; set; }= new ();
 
         [field: SerializeField, Label("MQTT链接状态"), ReadOnly]
         public MQTTStatus Status { get;private set; }

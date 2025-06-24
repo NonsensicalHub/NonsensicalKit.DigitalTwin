@@ -131,6 +131,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
                 SubscribeAsync(item.Key, item.Value);
             }
 
+
             return Task.CompletedTask;
         }
 
@@ -191,7 +192,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
 
             foreach (var item in options.TopicFilters)
             {
-                SubscribeTopics[item.Topic] = level;
+                TryAddTopic(item.Topic, level);
             }
         }
 
@@ -206,7 +207,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
                 _client.SubscribeAsync(topicFilter);
             }
 
-            SubscribeTopics .TryAdd(topic, level);
+            TryAddTopic(topic, level);
         }
 
         public void SubscribeAsync(string[] topics, MqttQualityOfServiceLevel level = MqttQualityOfServiceLevel.AtLeastOnce)
@@ -226,7 +227,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
 
             foreach (var item in topics)
             {
-                SubscribeTopics[item] = level;
+                TryAddTopic(item, level);
             }
         }
 
@@ -267,6 +268,15 @@ namespace NonsensicalKit.DigitalTwin.MQTT
             temp.ConnectedAsync += Client_ConnectedAsync;
             temp.DisconnectedAsync += Client_DisconnectedAsync; // 客户端连接关闭事件
             return temp;
+        }
+        
+        private void TryAddTopic(string topic, MqttQualityOfServiceLevel level)
+        {
+            //！！！ 不能改为TryAdd，会触发迭代时修改异常
+            if (SubscribeTopics.ContainsKey(topic) == false)
+            {
+                SubscribeTopics.Add(topic, level);
+            }
         }
     }
 }
