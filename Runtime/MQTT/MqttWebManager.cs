@@ -1,5 +1,5 @@
-#if !UNITY_EDITOR&&UNITY_WEBGL
-using System.Collections.Generic;
+#if !UNITY_EDITOR&&UNITY_WEBGL&&NonsensicalkitWebgl
+using MQTTnet.Protocol;
 using NonsensicalKit.Core;
 using NonsensicalKit.WebGL;
 using UnityEngine;
@@ -8,7 +8,6 @@ namespace NonsensicalKit.DigitalTwin.MQTT
 {
     public partial class MqttManager
     {
-        private readonly HashSet<string> _buffer = new();
         private bool _connected;
 
         public partial void Run()
@@ -27,15 +26,15 @@ namespace NonsensicalKit.DigitalTwin.MQTT
 
         protected virtual void Init()
         {
-            if (m_log) Debug.Log("InitWebMQTT: WebMQTT.Instance == null :" + (WebMQTT.Instance == null));
+            if (Log) Debug.Log("InitWebMQTT: WebMQTT.Instance == null :" + (WebMQTT.Instance == null));
 
 
             WebMQTT.Instance.Connect($"{MQTTPrefix}{MQTTURI}:{MQTTPort}/mqtt", MQTTUser, MQTTPassword);
 
             _connected = true;
-            foreach (var topic in _buffer)
+            foreach (var topic in SubscribeTopics)
             {
-                SubscribeAsync(topic);
+                SubscribeAsync(topic.Key);
             }
 
             IOCC.Subscribe<string, string>("MQTTMessage", OnWebMQTTMessageReceived);
@@ -43,7 +42,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
 
         private void OnWebMQTTMessageReceived(string topic, string message)
         {
-            if (m_log) Debug.Log("客户端收到消息：" + topic + "=====" + message);
+            if (Log) Debug.Log("客户端收到消息：" + topic + "=====" + message);
             MessageReceived?.Invoke(topic, message);
         }
 
@@ -51,17 +50,17 @@ namespace NonsensicalKit.DigitalTwin.MQTT
         {
             if (url != MQTTURI) return;
 
-            if (m_log) Debug.Log("MQTTMessageConnectSuccess");
+            if (Log) Debug.Log("MQTTMessageConnectSuccess");
 
             _clientID = clientId;
-            _status = MQTTStatus.Connected;
+            Status = MQTTStatus.Connected;
         }
 
         #region 发布消息
 
         public void PublishAsync(string topic, string message)
         {
-            if (m_log) Debug.Log($"客户端发布：Published message: {message} to topic: {topic}");
+            if (Log) Debug.Log($"客户端发布：Published message: {message} to topic: {topic}");
             WebMQTT.Instance.SendMessage(MQTTURI, topic, message);
         }
 
@@ -71,44 +70,27 @@ namespace NonsensicalKit.DigitalTwin.MQTT
 
         public void SubscribeAsync(string topic)
         {
-            if (!_connected)
-            {
-                _buffer.Add(topic);
-            }
-            else
+            if (_connected)
             {
                 WebMQTT.Instance.Subscribe(MQTTURI, topic);
-                if (m_recordTopic == false || _subscribeTopics.Contains(topic)) return;
-                _subscribeTopics.Add(topic);
             }
+
+            SubscribeTopics.Add(topic, MqttQualityOfServiceLevel.AtLeastOnce);
         }
 
         public void SubscribeAsync(string[] topics)
         {
-            if (!_connected)
-            {
-                foreach (var topic in topics)
-                {
-                    _buffer.Add(topic);
-                }
-            }
-            else
+            if (_connected)
             {
                 foreach (var topic in topics)
                 {
                     WebMQTT.Instance.Subscribe(MQTTURI, topic);
                 }
+            }
 
-                if (m_recordTopic)
-                {
-                    foreach (var item in topics)
-                    {
-                        if (_subscribeTopics.Contains(item) == false)
-                        {
-                            _subscribeTopics.Add(item);
-                        }
-                    }
-                }
+            foreach (var topic in topics)
+            {
+                SubscribeTopics.Add(topic, MqttQualityOfServiceLevel.AtLeastOnce);
             }
         }
 
@@ -123,14 +105,11 @@ namespace NonsensicalKit.DigitalTwin.MQTT
                 WebMQTT.Instance.Unsubscribe(MQTTURI, topic);
             }
 
-            if (m_recordTopic)
+            foreach (var item in topics)
             {
-                foreach (var item in topics)
+                if (SubscribeTopics.ContainsKey(item))
                 {
-                    if (_subscribeTopics.Contains(item))
-                    {
-                        _subscribeTopics.Remove(item);
-                    }
+                    SubscribeTopics.Remove(item);
                 }
             }
         }

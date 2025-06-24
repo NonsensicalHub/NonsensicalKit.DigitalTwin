@@ -1,11 +1,16 @@
 using System;
 using System.Collections.Generic;
+using MQTTnet.Protocol;
 using NaughtyAttributes;
 using NonsensicalKit.Core;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace NonsensicalKit.DigitalTwin.MQTT
 {
+    /// <summary>
+    /// 暂无安卓支持
+    /// </summary>
     public partial class MqttManager : NonsensicalMono
     {
         public string MQTTPrefix = "ws://";
@@ -16,30 +21,20 @@ namespace NonsensicalKit.DigitalTwin.MQTT
         public string MQTTUser = "";
         public string MQTTPassword = "";
 
+        [field:SerializeField, ReadOnly]    public bool Log { get; set; }
 
-        public bool m_log;
-        [SerializeField] private bool m_recordTopic;
+        [field:SerializeField, ReadOnly,Label("重连间隔时间(s)")] public float ReconnectGapTime  { get; set; }= 10;
+        [field:SerializeField, ReadOnly]  public bool UseTLS { get; set; }
 
-        [SerializeField, ShowIf("m_recordTopic")]
-        private bool m_showTopics;
+        private Dictionary<string, MqttQualityOfServiceLevel>  SubscribeTopics  { get; }= new ();
 
-        [SerializeField, Label("重连间隔时间(s)")] public float ReconnectGapTime = 10;
-        [SerializeField] public bool m_useTLS;
+        [field: SerializeField, Label("MQTT链接状态"), ReadOnly]
+        public MQTTStatus Status { get;private set; }
 
-        [SerializeField, ShowIf("m_showTopics"), ReadOnly, Label("已订阅的主题")]
-        private List<string> _subscribeTopics = new List<string>();
-
-        [SerializeField, Label("MQTT链接状态"), ReadOnly]
-        private MQTTStatus _status;
-
-        private int _failCount;
         private float _waitTime;
         private string _clientID;
 
         public Action<string, string> MessageReceived;
-
-        public MQTTStatus Status => _status;
-
 
         public partial void Run();
 
@@ -47,18 +42,15 @@ namespace NonsensicalKit.DigitalTwin.MQTT
 
         public List<string> ShowSubscribedTopics()
         {
-            if (m_recordTopic)
+            if (SubscribeTopics == null || SubscribeTopics.Count == 0) return null;
+            var topics = new List<string>();
+            foreach (var item in SubscribeTopics)
             {
-                if (_subscribeTopics == null || _subscribeTopics.Count == 0) return null;
-                foreach (var item in _subscribeTopics)
-                {
-                    Debug.Log($"Subscribed topic: {item}");
-                }
-
-                return _subscribeTopics;
+                topics.Add(item.Key);
+                Debug.Log($"Subscribed topic: {item.Key}");
             }
 
-            return null;
+            return topics;
         }
     }
 }

@@ -44,8 +44,8 @@ namespace NonsensicalKit.DigitalTwin.MQTT
                 manager.IsWebSocketConnectionType = config.m_IsWebSocketConnectionType;
                 manager.MQTTUser = config.m_MqttUser;
                 manager.MQTTPassword = config.m_MqttPassword;
-                manager.m_log = m_log;
-                manager.m_useTLS = m_useTls;
+                manager.Log = m_log;
+                manager.UseTLS = m_useTls;
                 manager.ReconnectGapTime = m_reconnectGapTime;
                 manager.Run();
                 Manager ??= manager;

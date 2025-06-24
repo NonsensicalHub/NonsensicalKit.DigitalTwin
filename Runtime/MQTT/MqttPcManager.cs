@@ -15,7 +15,6 @@ namespace NonsensicalKit.DigitalTwin.MQTT
     {
         private Task _connectTask;
         private IMqttClient _client;
-        private readonly Dictionary<string, MqttQualityOfServiceLevel> _buffer = new();
 
         public partial void Run()
         {
@@ -25,7 +24,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
 
         private void Update()
         {
-            if (_connectTask != null && _status == MQTTStatus.ConnectFailed)
+            if (_connectTask != null && Status == MQTTStatus.ConnectFailed)
             {
                 _waitTime += Time.deltaTime;
                 if (_waitTime > ReconnectGapTime)
@@ -50,7 +49,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
                 .WithCleanSession()
                 .WithTlsOptions(new MqttClientTlsOptions()
                 {
-                    UseTls = m_useTLS
+                    UseTls = UseTLS
                 });
             if (IsWebSocketConnectionType)
             {
@@ -71,7 +70,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
             _client.ApplicationMessageReceivedAsync += Client_ApplicationMessageReceivedAsync;
             // 收到消息事件
 
-            _status = MQTTStatus.Connecting;
+            Status = MQTTStatus.Connecting;
             _client.ConnectAsync(clientOptions);
         }
 
@@ -83,7 +82,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
             Debug.LogWarning("重新连接");
             Task.Run(delegate()
             {
-                _status = MQTTStatus.Connecting;
+                Status = MQTTStatus.Connecting;
                 _client.ReconnectAsync();
             });
         }
@@ -97,7 +96,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
         {
             string str = Encoding.UTF8.GetString(arg.ApplicationMessage.PayloadSegment.Array);
 
-            if (m_log) Debug.Log("客户端收到消息：" + arg.ApplicationMessage.Topic + "=====" + str);
+            if (Log) Debug.Log("客户端收到消息：" + arg.ApplicationMessage.Topic + "=====" + str);
 
             MessageReceived?.Invoke(arg.ApplicationMessage.Topic, str);
             Publish("MQTTReceiveData", arg.ApplicationMessage.Topic, str);
@@ -114,8 +113,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
         private Task Client_DisconnectedAsync(MqttClientDisconnectedEventArgs arg)
         {
             Debug.Log("MQTT连接断开:" + arg.Reason);
-            _status = MQTTStatus.ConnectFailed;
-            _failCount++;
+            Status = MQTTStatus.ConnectFailed;
             return Task.CompletedTask;
         }
 
@@ -126,14 +124,12 @@ namespace NonsensicalKit.DigitalTwin.MQTT
         /// <returns></returns>
         private Task Client_ConnectedAsync(MqttClientConnectedEventArgs arg)
         {
-            _status = MQTTStatus.Connected;
+            Status = MQTTStatus.Connected;
             Debug.Log("MQTT已连接:  " + MQTTURI);
-            foreach (var item in _buffer)
+            foreach (var item in SubscribeTopics)
             {
                 SubscribeAsync(item.Key, item.Value);
             }
-
-            _failCount = 0;
 
             return Task.CompletedTask;
         }
@@ -155,7 +151,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
                 .Build();
 
             _client.PublishAsync(mqttApplicationMessage);
-            if (m_log) Debug.Log($"客户端发布：Published message: {message} to topic: {topic}");
+            if (Log) Debug.Log($"客户端发布：Published message: {message} to topic: {topic}");
         }
 
         public async void PublishAsync(Dictionary<string, string> messages, MqttQualityOfServiceLevel level = MqttQualityOfServiceLevel.AtLeastOnce)
@@ -173,7 +169,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
                 foreach (var message in applicationMessages)
                 {
                     await _client.PublishAsync(message);
-                    if (m_log) Debug.Log($"Published message: {Encoding.UTF8.GetString(message.PayloadSegment)} to topic: {message.Topic}");
+                    if (Log) Debug.Log($"Published message: {Encoding.UTF8.GetString(message.PayloadSegment)} to topic: {message.Topic}");
                 }
             }
             catch (Exception e)
@@ -188,51 +184,34 @@ namespace NonsensicalKit.DigitalTwin.MQTT
 
         public void SubscribeAsync(MqttClientSubscribeOptions options, MqttQualityOfServiceLevel level = MqttQualityOfServiceLevel.AtLeastOnce)
         {
-            if (_client == null)
-            {
-                foreach (var item in options.TopicFilters)
-                {
-                    _buffer.TryAdd(item.Topic, level);
-                }
-            }
-            else
+            if (_client != null && Status == MQTTStatus.Connected)
             {
                 _client.SubscribeAsync(options);
-                if (m_recordTopic)
-                    _subscribeTopics.AddRange(
-                        options.TopicFilters.FindAll(x => _subscribeTopics.Contains(x.Topic) == false).Select(y => y.Topic).ToList());
+            }
+
+            foreach (var item in options.TopicFilters)
+            {
+                SubscribeTopics[item.Topic] = level;
             }
         }
 
         public void SubscribeAsync(string topic, MqttQualityOfServiceLevel level = MqttQualityOfServiceLevel.AtLeastOnce)
         {
-            if (_client == null)
-            {
-                _buffer.TryAdd(topic, level);
-            }
-            else
+            if (_client != null && Status == MQTTStatus.Connected)
             {
                 var topicFilter = new MqttTopicFilterBuilder()
                     .WithTopic(topic)
                     .WithQualityOfServiceLevel(level)
                     .Build();
                 _client.SubscribeAsync(topicFilter);
-
-                if (m_recordTopic == false || _subscribeTopics.Contains(topic)) return;
-                _subscribeTopics.Add(topic);
             }
+
+            SubscribeTopics .TryAdd(topic, level);
         }
 
         public void SubscribeAsync(string[] topics, MqttQualityOfServiceLevel level = MqttQualityOfServiceLevel.AtLeastOnce)
         {
-            if (_client == null)
-            {
-                foreach (var item in topics)
-                {
-                    _buffer.TryAdd(item, level);
-                }
-            }
-            else
+            if (_client != null && Status == MQTTStatus.Connected)
             {
                 var topicFilters = new MqttClientSubscribeOptions
                 {
@@ -243,17 +222,11 @@ namespace NonsensicalKit.DigitalTwin.MQTT
                         .ToList()
                 };
                 _client.SubscribeAsync(topicFilters);
+            }
 
-                if (m_recordTopic)
-                {
-                    foreach (var item in topics)
-                    {
-                        if (_subscribeTopics.Contains(item) == false)
-                        {
-                            _subscribeTopics.Add(item);
-                        }
-                    }
-                }
+            foreach (var item in topics)
+            {
+                SubscribeTopics[item] = level;
             }
         }
 
@@ -266,7 +239,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
             _client.UnsubscribeAsync(options);
             foreach (var item in options.TopicFilters)
             {
-                _subscribeTopics.Remove(item);
+                SubscribeTopics.Remove(item);
             }
         }
 
@@ -280,7 +253,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
             _client.UnsubscribeAsync(topicFilter);
             foreach (var item in topics)
             {
-                _subscribeTopics.Remove(item);
+                SubscribeTopics.Remove(item);
             }
         }
 
