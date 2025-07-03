@@ -17,6 +17,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
         [SerializeField, Label("重连间隔时间(s)")] private float m_reconnectGapTime = 10;
         [SerializeField] private bool m_log;
         [SerializeField] private bool m_useTls;
+        [SerializeField] private bool m_forwardFirstTime = false;
 
         public bool IsReady { get; private set; }
         public Action InitCompleted { get; set; }
@@ -46,6 +47,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
                 manager.MQTTPassword = config.m_MqttPassword;
                 manager.Log = m_log;
                 manager.UseTLS = m_useTls;
+                manager.ForwardFirstTime = m_forwardFirstTime;
                 manager.ReconnectGapTime = m_reconnectGapTime;
                 manager.Run();
                 Manager ??= manager;

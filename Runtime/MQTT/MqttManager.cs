@@ -20,6 +20,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
         public bool IsWebSocketConnectionType;
         public string MQTTUser = "";
         public string MQTTPassword = "";
+        public bool ForwardFirstTime = false;
 
         [field:SerializeField, ReadOnly]    public bool Log { get; set; }
 

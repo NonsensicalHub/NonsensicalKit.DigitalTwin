@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using NaughtyAttributes;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -30,6 +31,12 @@ namespace NonsensicalKit.DigitalTwin.Motion
         private float _speed2;
         private bool _isRunning;
 
+        [Button]
+        private void GetArea()
+        {
+            m_Area = GetComponent<PhysicalCollisionArea>();
+        }
+        
         private void Update()
         {
             if (_isRunning)

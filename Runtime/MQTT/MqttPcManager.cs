@@ -15,6 +15,8 @@ namespace NonsensicalKit.DigitalTwin.MQTT
     {
         private Task _connectTask;
         private IMqttClient _client;
+        private List<(string, string)> _messages = new();
+
 
         public partial void Run()
         {
@@ -33,12 +35,29 @@ namespace NonsensicalKit.DigitalTwin.MQTT
                     Reconnect();
                 }
             }
+
+            if (!ForwardFirstTime)
+            {
+                foreach (var (topic, message) in _messages)
+                {
+                    Send(topic, message);
+                }
+
+                _messages.Clear();
+            }
         }
 
         private partial void OnApplicationQuit()
         {
             _connectTask?.Dispose();
             _client?.Dispose();
+        }
+
+        private void Send(string topic, string message)
+        {
+            MessageReceived?.Invoke(topic, message);
+            Publish("MQTTReceiveData", topic, message);
+            Publish("MQTTReceiveData", MQTTURI, topic, message);
         }
 
         private void Init()
@@ -97,10 +116,14 @@ namespace NonsensicalKit.DigitalTwin.MQTT
             string str = Encoding.UTF8.GetString(arg.ApplicationMessage.PayloadSegment.Array);
 
             if (Log) Debug.Log("客户端收到消息：" + arg.ApplicationMessage.Topic + "=====" + str);
-
-            MessageReceived?.Invoke(arg.ApplicationMessage.Topic, str);
-            Publish("MQTTReceiveData", arg.ApplicationMessage.Topic, str);
-            Publish("MQTTReceiveData", MQTTURI, arg.ApplicationMessage.Topic, str);
+            if (ForwardFirstTime)
+            {
+                Send(arg.ApplicationMessage.Topic, str);
+            }
+            else
+            {
+                _messages.Add((arg.ApplicationMessage.Topic, str));
+            }
 
             return Task.CompletedTask;
         }
@@ -269,7 +292,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
             temp.DisconnectedAsync += Client_DisconnectedAsync; // 客户端连接关闭事件
             return temp;
         }
-        
+
         private void TryAddTopic(string topic, MqttQualityOfServiceLevel level)
         {
             //！！！ 不能改为TryAdd，会触发迭代时修改异常
