@@ -1,5 +1,6 @@
 #if UNITY_EDITOR||!UNITY_WEBGL
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -15,8 +16,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
     {
         private Task _connectTask;
         private IMqttClient _client;
-        private List<(string, string)> _messages = new();
-
+        private readonly ConcurrentQueue<(string, string)> _messages = new();
 
         public partial void Run()
         {
@@ -38,12 +38,12 @@ namespace NonsensicalKit.DigitalTwin.MQTT
 
             if (!ForwardFirstTime)
             {
-                foreach (var (topic, message) in _messages)
+                var msg = _messages.ToArray();
+                _messages.Clear();
+                foreach (var (topic, message) in msg)
                 {
                     Send(topic, message);
                 }
-
-                _messages.Clear();
             }
         }
 
@@ -122,7 +122,7 @@ namespace NonsensicalKit.DigitalTwin.MQTT
             }
             else
             {
-                _messages.Add((arg.ApplicationMessage.Topic, str));
+                _messages.Enqueue((arg.ApplicationMessage.Topic, str));
             }
 
             return Task.CompletedTask;
