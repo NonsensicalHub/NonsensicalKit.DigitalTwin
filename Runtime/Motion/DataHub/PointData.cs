@@ -36,7 +36,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
         /// <summary>
         /// plc点位名称，用于debug和展示
         /// </summary>
-        [JsonProperty("Name")]
+        [JsonProperty("Point")]
         public string Point;
 
         /// <summary>

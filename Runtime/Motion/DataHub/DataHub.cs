@@ -20,22 +20,26 @@ namespace NonsensicalKit.DigitalTwin.Motion
         {
             get
             {
-                if (_instance==null)
+                if (_instance == null)
                 {
                     _instance = ServiceCore.Get<DataHub>();
                 }
+
                 return _instance;
             }
         }
 
         private static DataHub _instance;
-        
+
         [Tooltip("是否使用配置初始化Part")] [SerializeField]
-        private bool m_useConfigInit=true;
-        [Tooltip("单点位修改模式")]  [SerializeField]
-        private bool m_singlePointMode;     //一个部件只要有一个点位修改就更新状态
+        private bool m_useConfigInit = true;
+
+        [Tooltip("单点位修改模式")] [SerializeField]
+        private bool m_singlePointMode; //一个部件只要有一个点位修改就更新状态
+
         [Tooltip("首次接收到未配置过的点位时输出日志")] [SerializeField]
         private bool m_logNonExistentPoint;
+
         public bool IsReady { get; private set; }
 
         public Action InitCompleted { get; set; }
@@ -57,8 +61,8 @@ namespace NonsensicalKit.DigitalTwin.Motion
         /// 每次报警后缓存点位，防止重复报警
         /// </summary>
         private readonly HashSet<string> _loggedPoints = new();
-        
-        
+
+
         private readonly HashSet<string> _catchIDs = new HashSet<string>();
         private bool _catching;
 
@@ -67,7 +71,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
             Subscribe<IEnumerable<PartConfig>>("InitPartConfig", InitPartConfig); //初始化配置
             Subscribe<IEnumerable<PointData>>("ReceivePoints", ReceivePoints); //接受到一组数据
             Subscribe<PointData>("ReceivePoint", ReceivePoint); //接收到单个数据
-            
+
             if (m_useConfigInit)
             {
                 ServiceCore.SafeGet<ConfigService>(OnGetConfig);
@@ -85,7 +89,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
             if (configManager.TryGetConfigs<PartConfig>(out var configs))
             {
                 InitPartConfig(configs);
-                
+
                 IsReady = true;
                 InitCompleted?.Invoke();
             }
@@ -97,23 +101,26 @@ namespace NonsensicalKit.DigitalTwin.Motion
 
         public void InitPartConfig(IEnumerable<PartConfig> configs)
         {
-            List<string> errorID = new List<string>();
-
+            List<string> errorMessage = new List<string>();
+            Dictionary<string, PartConfig> buffer = new Dictionary<string, PartConfig>();
+            
             foreach (var config in configs)
             {
                 string partID = config.partID;
                 if (_partPointsPair.ContainsKey(partID))
                 {
-                    errorID.Add("重复的部件ID" + partID);
+                    errorMessage.Add($"重复的部件ID{partID}在{config.partName}和{buffer[partID].partName}中");
                     continue;
                 }
+
+                buffer.Add(partID, config);
 
                 Dictionary<string, PointDataBuffer> pointIDs = new Dictionary<string, PointDataBuffer>();
                 foreach (var point in config.pointConfigs)
                 {
                     if (pointIDs.ContainsKey(point.pointID))
                     {
-                        errorID.Add(partID + "部件中重复的点位ID" + point);
+                        errorMessage.Add($"{partID}部件中重复的点位ID{point}在{config.partName}和{buffer[partID].partName}中");
                         continue;
                     }
 
@@ -135,11 +142,11 @@ namespace NonsensicalKit.DigitalTwin.Motion
                 }
             }
 
-            if (errorID.Count > 0)
+            if (errorMessage.Count > 0)
             {
                 StringBuilder sb = new StringBuilder();
                 sb.AppendLine("点位配置有误");
-                foreach (var item in errorID)
+                foreach (var item in errorMessage)
                 {
                     sb.AppendLine(item);
                 }
@@ -155,7 +162,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
         public void ReceivePoints(IEnumerable<PointData> points)
         {
             //使用set防止重复调用事件
-            HashSet<string> IDs =_catching?_catchIDs: new HashSet<string>();
+            HashSet<string> IDs = _catching ? _catchIDs : new HashSet<string>();
 
             foreach (var point in points)
             {
@@ -225,7 +232,6 @@ namespace NonsensicalKit.DigitalTwin.Motion
         public void Catch()
         {
             _catching = true;
-            
         }
 
         public void Flush()
@@ -234,7 +240,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
             CheckParts(_catchIDs.ToList());
             _catchIDs.Clear();
         }
-        
+
         /// <summary>
         /// 检测part中的数据是否是都是新鲜的，新鲜的话就调用事件
         /// 单点位修改模式下改为检测是否至少有一个点位更新
@@ -244,20 +250,20 @@ namespace NonsensicalKit.DigitalTwin.Motion
         {
             foreach (var partID in partIDs)
             {
-                var dic = _partPointsPair[partID];  //此处使用的id是通过_pointPartsPair查出来的，无需判断是否存在
-                bool flag ; //是否需要更新此部件
+                var dic = _partPointsPair[partID]; //此处使用的id是通过_pointPartsPair查出来的，无需判断是否存在
+                bool flag; //是否需要更新此部件
                 if (m_singlePointMode)
                 {
                     flag = false;
                     //遍历部件下的所有点，是否存在新鲜的
                     foreach (var pair in dic)
                     {
-                        if (pair.Value.Fresh )
+                        if (pair.Value.Fresh)
                         {
                             flag = true;
                         }
 
-                        if (pair.Value.Data==null)
+                        if (pair.Value.Data == null)
                         {
                             flag = false;
                             break;
@@ -289,8 +295,8 @@ namespace NonsensicalKit.DigitalTwin.Motion
                     points.Add(pair.Value.Data);
                     pair.Value.Fresh = false;
                 }
-    
-                PublishWithID("MotionPartUpdate",partID, points);
+
+                PublishWithID("MotionPartUpdate", partID, points);
             }
         }
     }
