@@ -1,10 +1,12 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using NonsensicalKit.Core;
 using NonsensicalKit.Tools;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Events;
 
 namespace NonsensicalKit.DigitalTwin
 {
@@ -121,14 +123,24 @@ namespace NonsensicalKit.DigitalTwin
     /// </summary>
     public class JointController : NonsensicalMono
     {
-        public bool Pausing { get; set; }
-
         public JointSetting[] Joints;
+        [SerializeField] private UnityEvent m_runningOver;
+
+        public bool Pausing { get; set; }
+        private bool Running => _running.Any(run => run);
+        public UnityEvent RunningOver => m_runningOver;
+
+        private bool[] _running;
 
         private float _listTimer; //贯穿链表数据运动的计时器，用于校准时间，避免因为每个数据执行时协程里一帧的等待时间积累起来导致的时间误差
         private float _listTime;
 
         private bool _isList;
+
+        private void Awake()
+        {
+            _running = new bool[Joints.Length];
+        }
 
         protected virtual void Update()
         {
@@ -318,14 +330,35 @@ namespace NonsensicalKit.DigitalTwin
             }
 
             Vector3 targetV3 = crtJoint.ZeroState + v3Offset;
+
             switch (crtJoint.AxisType)
             {
                 case JointAxisType.Rotation:
+                {
+                    
+                    if (crtJoint.JointsNode.localEulerAngles == targetV3) yield break;
+                    _running[index] = true;
                     yield return DoRotate(crtJoint.JointsNode, targetV3, time);
+                    _running[index] = false;
+                    if (Running == false)
+                    {
+                        m_runningOver?.Invoke();
+                    }
                     break;
+                }
+
                 case JointAxisType.Position:
+                {
+                    if (crtJoint.JointsNode.localPosition == targetV3) yield break;
+                    _running[index] = true;
                     yield return DoMove(crtJoint.JointsNode, targetV3, time);
+                    _running[index] = false;
+                    if (Running == false)
+                    {
+                        m_runningOver?.Invoke();
+                    }
                     break;
+                }
             }
         }
 

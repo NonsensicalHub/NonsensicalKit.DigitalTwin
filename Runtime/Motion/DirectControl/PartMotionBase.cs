@@ -19,6 +19,8 @@ namespace NonsensicalKit.DigitalTwin.Motion
         /// </summary>
         [SerializeField] private bool m_autoInit;
 
+        public string PartID => m_partID;
+        
         /// <summary>
         /// 从毫秒转换成秒的倍率
         /// </summary>
