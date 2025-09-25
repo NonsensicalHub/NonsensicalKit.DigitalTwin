@@ -61,6 +61,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
         /// 每次报警后缓存点位，防止重复报警
         /// </summary>
         private readonly HashSet<string> _loggedPoints = new();
+        private  Dictionary<string, string> buffer = new Dictionary<string, string>();
 
 
         private readonly HashSet<string> _catchIDs = new HashSet<string>();
@@ -102,25 +103,24 @@ namespace NonsensicalKit.DigitalTwin.Motion
         public void InitPartConfig(IEnumerable<PartConfig> configs)
         {
             List<string> errorMessage = new List<string>();
-            Dictionary<string, PartConfig> buffer = new Dictionary<string, PartConfig>();
             
             foreach (var config in configs)
             {
                 string partID = config.partID;
                 if (_partPointsPair.ContainsKey(partID))
                 {
-                    errorMessage.Add($"重复的部件ID{partID}在{config.partName}和{buffer[partID].partName}中");
+                    errorMessage.Add($"重复的部件ID{partID}在{config.partName}和{buffer[partID]}中");
                     continue;
                 }
 
-                buffer.Add(partID, config);
+                buffer.Add(partID, config.partName);
 
                 Dictionary<string, PointDataBuffer> pointIDs = new Dictionary<string, PointDataBuffer>();
                 foreach (var point in config.pointConfigs)
                 {
                     if (pointIDs.ContainsKey(point.pointID))
                     {
-                        errorMessage.Add($"{partID}部件中重复的点位ID{point}在{config.partName}和{buffer[partID].partName}中");
+                        errorMessage.Add($"{partID}部件中重复的点位ID{point}在{config.partName}和{buffer[partID]}中");
                         continue;
                     }
 
@@ -151,7 +151,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
                     sb.AppendLine(item);
                 }
 
-                Debug.Log(sb.ToString());
+                Debug.LogError(sb.ToString());
             }
         }
 
