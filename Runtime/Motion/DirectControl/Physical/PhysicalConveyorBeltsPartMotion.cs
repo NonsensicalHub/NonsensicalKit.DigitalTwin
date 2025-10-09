@@ -87,6 +87,8 @@ namespace NonsensicalKit.DigitalTwin.Motion
         {
             base.Dispose();
             IsRunning = false;
+            m_area.OnMaterialsEnter.RemoveAllListeners();
+            m_area.OnMaterialsExit.RemoveAllListeners();
             Materials.Clear();
         }
 
