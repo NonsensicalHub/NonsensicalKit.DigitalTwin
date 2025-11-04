@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using NonsensicalKit.Tools;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -15,7 +16,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
         public UnityEvent<PhysicalMaterials> OnMaterialsExit => m_onMaterialsExit;
 
         public readonly List<PhysicalMaterials> Materials = new();
-        
+
         private void Awake()
         {
             if (GetComponent<Rigidbody>() == null)
@@ -44,7 +45,9 @@ namespace NonsensicalKit.DigitalTwin.Motion
             {
                 Materials.Remove(materials);
             }
+
             m_onMaterialsExit?.Invoke(materials);
         }
+
     }
 }

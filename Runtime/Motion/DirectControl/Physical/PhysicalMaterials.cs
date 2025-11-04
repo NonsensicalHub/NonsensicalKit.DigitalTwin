@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using NonsensicalKit.Core;
 using UnityEngine;
 
 namespace NonsensicalKit.DigitalTwin.Motion
@@ -5,6 +8,10 @@ namespace NonsensicalKit.DigitalTwin.Motion
     public class PhysicalMaterials : MonoBehaviour
     {
         [SerializeField] private bool m_isKinematic;
+
+        public Action<PhysicalMaterials> Recycle;
+
+        public readonly HashSet<PhysicalCollisionArea> Areas = new();
 
         private bool _isRunning;
 
@@ -73,13 +80,58 @@ namespace NonsensicalKit.DigitalTwin.Motion
         }
 
 
+        public void Over(bool needRecycle = true)
+        {
+            foreach (var area in Areas)
+            {
+                area.MaterialsExit(this);
+            }
+
+            Areas.Clear();
+            if (needRecycle)
+            {
+                RecycleMaterials();
+            }
+        }
+
+        private void RecycleMaterials()
+        {
+            if (Recycle == null)
+            {
+                if (this!=null)
+                {
+                    Destroy(gameObject);
+                }
+            }
+            else
+            {
+                Recycle(this);
+            }
+        }
+
+        private void Enter(PhysicalCollisionArea area)
+        {
+            Areas.Add(area);
+            area.MaterialsEnter(this);
+        }
+
+        private void Exit(PhysicalCollisionArea area)
+        {
+            if (Areas.Contains(area))
+            {
+                Areas.Remove(area);
+            }
+
+            area.MaterialsExit(this);
+        }
+
         private void OnCollisionEnter(Collision other)
         {
             if (_isRunning)
             {
-                if (other.transform.TryGetComponent<PhysicalCollisionArea>(out var hpc))
+                if (other.transform.TryGetComponent<PhysicalCollisionArea>(out var area))
                 {
-                    hpc.MaterialsEnter(this);
+                    Enter(area);
                 }
             }
         }
@@ -88,9 +140,9 @@ namespace NonsensicalKit.DigitalTwin.Motion
         {
             if (_isRunning)
             {
-                if (other.transform.TryGetComponent<PhysicalCollisionArea>(out var hpc))
+                if (other.transform.TryGetComponent<PhysicalCollisionArea>(out var area))
                 {
-                    hpc.MaterialsExit(this);
+                    Exit(area);
                 }
             }
         }
@@ -99,9 +151,9 @@ namespace NonsensicalKit.DigitalTwin.Motion
         {
             if (_isRunning)
             {
-                if (other.transform.TryGetComponent<PhysicalCollisionArea>(out var hpc))
+                if (other.transform.TryGetComponent<PhysicalCollisionArea>(out var area))
                 {
-                    hpc.MaterialsEnter(this);
+                    Enter(area);
                 }
             }
         }
@@ -110,9 +162,9 @@ namespace NonsensicalKit.DigitalTwin.Motion
         {
             if (_isRunning)
             {
-                if (other.transform.TryGetComponent<PhysicalCollisionArea>(out var hpc))
+                if (other.transform.TryGetComponent<PhysicalCollisionArea>(out var area))
                 {
-                    hpc.MaterialsExit(this);
+                    Exit(area);
                 }
             }
         }

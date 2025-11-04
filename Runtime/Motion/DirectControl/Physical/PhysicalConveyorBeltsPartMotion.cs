@@ -38,7 +38,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
             m_area = GetComponentInChildren<PhysicalCollisionArea>();
         }
 
-        private void Update()
+        protected virtual void Update()
         {
             if (IsRunning)
             {
