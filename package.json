@@ -1,10 +1,12 @@
 {
   "name": "com.nonsensicallab.nonsensicalkit.digitaltwin",
   "displayName": "NonsensicalKit.DigitalTwin",
-  "author": { "name": "NonsensicalLab" },
+  "author": {
+    "name": "NonsensicalLab"
+  },
   "version": "0.0.1",
   "unity": "2021.3",
-  "description": "\u6570\u5b57\u5b6a\u751f\u76f8\u5173\uff0c\u4f9d\u8d56Core\u548cUGUI",
+  "description": "\u6570\u5b57\u5b6a\u751f\u76f8\u5173\uff0c\u4f9d\u8d56Core\u548cUGUI\n\u5916\u90e8\u4f9d\u8d56UniTask",
   "dependencies": {
     "com.unity.cinemachine": "2.8.9"
   },
@@ -20,14 +22,14 @@
       "path": "Samples~/JointController"
     },
     {
-      "displayName": "UniTaskNetWorkRequest",
-      "description": "UniTask网络请求",
-      "path": "Samples~/UniTaskNetWorkRequest"
+      "displayName": "MQTT",
+      "description": "MQTT\u6d88\u606f\u8ba2\u9605",
+      "path": "Samples~/MQTT"
     },
     {
-      "displayName": "MQTT",
-      "description": "MQTT消息订阅",
-      "path": "Samples~/MQTT"
+      "displayName": "CargoRender",
+      "description": "CargoRender\u6d88\u606f\u8ba2\u9605",
+      "path": "Samples~/CargoRender"
     }
   ]
 }

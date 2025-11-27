@@ -9,7 +9,8 @@
         "NonsensicalKit.WebGL.Editor",
         "NonsensicalKit.WebGL",
         "Unity.Cinemachine",
-        "SocketIOUnityAssembly"
+        "SocketIOUnityAssembly",
+        "UniTask"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
