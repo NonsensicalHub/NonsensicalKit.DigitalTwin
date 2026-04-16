@@ -27,6 +27,11 @@
       "path": "Samples~/MQTT"
     },
     {
+      "displayName": "SocketIO",
+      "description": "SocketIO\u6d88\u606f\u8ba2\u9605",
+      "path": "Samples~/SocketIO"
+    },
+    {
       "displayName": "CargoRender",
       "description": "CargoRender\u6d88\u606f\u8ba2\u9605",
       "path": "Samples~/CargoRender"
