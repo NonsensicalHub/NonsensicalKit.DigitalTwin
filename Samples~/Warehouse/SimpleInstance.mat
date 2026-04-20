@@ -20,10 +20,9 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: BeltItem1
-  m_Shader: {fileID: -6465566751694194690, guid: 4dee8768b47e0964b843c736d991cb1f, type: 3}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
+  m_Name: SimpleInstance
+  m_Shader: {fileID: -6465566751694194690, guid: ed7174530fff97547a96bb431522fe8b,
+    type: 3}
   m_ValidKeywords:
   - PROCEDURAL_INSTANCING_ON
   m_InvalidKeywords: []
@@ -34,7 +33,6 @@ Material:
   stringTagMap: {}
   disabledShaderPasses:
   - MOTIONVECTORS
-  m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
@@ -116,6 +114,7 @@ Material:
     - _DetailAlbedoMapScale: 1
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
+    - _Emission: 0
     - _EnvironmentReflections: 1
     - _GlossMapScale: 0
     - _Glossiness: 0
@@ -135,11 +134,12 @@ Material:
     - _ZWrite: 1
     m_Colors:
     - Color_08f85752bfc3415eaac37b5f7093c004: {r: 2.9960785, g: 0, b: 0, a: 0}
-    - Color_09a005383a1e44bcaff18033b0e48634: {r: 0, g: 5.3403134, b: 0.02796013, a: 0}
-    - Color_b3480a423fb846afa256c957bbd7434c: {r: 0.01886791, g: 0.01886791, b: 0.01886791, a: 0}
+    - Color_09a005383a1e44bcaff18033b0e48634: {r: 0, g: 5.3403134, b: 0.02796013,
+        a: 0}
+    - Color_b3480a423fb846afa256c957bbd7434c: {r: 0.01886791, g: 0.01886791, b: 0.01886791,
+        a: 0}
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
   m_BuildTextureStacks: []
-  m_AllowLocking: 1

@@ -22,3 +22,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 - 新增仓库管理模块及其示例
+
+## [1.1.1] - 2026-04-20
+
+### Removed
+
+- 删除冗余的模块及示例

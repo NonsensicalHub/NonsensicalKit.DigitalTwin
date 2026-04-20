@@ -182,8 +182,9 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u7B2C\u4E00\u6B21\u4F7F\u7528\u8981\u70B9\u51FBManager\u91CC\u7684Create\u6309\u94AE\u521B\u5EFA\u8D27\u4F4D\u6570\u636E\u6587\u4EF6"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 697d3611eb6fdff4eb99f8d4a775cb5c, type: 2}
-  m_sharedMaterial: {fileID: -5963540817906001490, guid: 697d3611eb6fdff4eb99f8d4a775cb5c, type: 2}
+  m_fontAsset: {fileID: 0}
+  m_sharedMaterial: {fileID: -5963540817906001490, guid: 697d3611eb6fdff4eb99f8d4a775cb5c,
+    type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
