@@ -16,3 +16,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 
 - 将SokcetIo模块和Mqtt模块移动到Samples中，按需使用，避免dll冲突
+
+## [1.1.0] - 2026-04-20
+
+### Added
+
+- 新增仓库管理模块及其示例

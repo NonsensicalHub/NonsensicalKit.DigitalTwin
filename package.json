@@ -4,7 +4,7 @@
   "author": {
     "name": "NonsensicalLab"
   },
-  "version": "1.0.0",
+  "version": "1.1.0",
   "unity": "2021.3",
   "description": "\u6570\u5b57\u5b6a\u751f\u76f8\u5173\uff0c\u4f9d\u8d56Core\u548cUGUI\n\u5916\u90e8\u4f9d\u8d56UniTask",
   "dependencies": {
@@ -35,6 +35,11 @@
       "displayName": "CargoRender",
       "description": "CargoRender\u793a\u4f8b\u573a\u666f",
       "path": "Samples~/CargoRender"
+    },
+    {
+      "displayName": "Warehouse",
+      "description": "\u4ed3\u5e93\u8d27\u4f4d\u7ba1\u7406\u793a\u4f8b",
+      "path": "Samples~/Warehouse"
     }
   ]
 }
