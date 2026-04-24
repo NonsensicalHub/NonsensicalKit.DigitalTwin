@@ -242,7 +242,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             _binDataInited = true;
             foreach (var bin in data.Bins)
             {
-                _binData[bin.Row, bin.Column, bin.Level, bin.Depth] = new RuntimeBinData(bin.PosX, bin.PosY, bin.PosZ);
+                _binData[  bin.Level,bin.Column, bin.Row,bin.Depth] = new RuntimeBinData(bin.PosX, bin.PosY, bin.PosZ);
             }
         }
 

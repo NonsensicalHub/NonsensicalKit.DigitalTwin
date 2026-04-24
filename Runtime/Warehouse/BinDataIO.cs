@@ -18,9 +18,9 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
     [StructLayout(LayoutKind.Sequential, Pack = 1)] // 紧凑排列，无对齐填充
     public struct BinData
     {
-        public int Row;
-        public int Column;
         public int Level;
+        public int Column;
+        public int Row;
         public int Depth;
         public float PosX;
         public float PosY;
@@ -253,9 +253,9 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             }
 
             return new Int4(
-                checked(maxRow + 1),
-                checked(maxColumn + 1),
                 checked(maxLevel + 1),
+                checked(maxColumn + 1),
+                checked(maxRow + 1),
                 checked(maxDepth + 1));
         }
 
@@ -338,7 +338,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 handle.Free();
             }
         }
-
+        
         private static void CopyBufferToBins(byte[] sourceBuffer, int sourceOffset, BinData[] bins, int dataByteSize)
         {
             var handle = GCHandle.Alloc(bins, GCHandleType.Pinned);
