@@ -6,7 +6,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
     {
         private readonly GameObject _highlightCargo;
         private readonly GameObject _highlightIndicator;
-
+        
         public WarehouseHighlightController(GameObject highlightCargo, GameObject highlightIndicator)
         {
             _highlightCargo = highlightCargo;

@@ -8,14 +8,15 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
     internal sealed class WarehouseBinDataStore
     {
         private Array4<RuntimeBinData> _binData;
+        private bool HasBinData => _binData.m_Array != null;
 
         public bool IsReady { get; private set; }
-        public Int4 Size => _binData?.Size ?? new Int4(0, 0, 0, 0);
-        public int LayerCount => _binData?.Length0 ?? 0;
-        public int ColumnCount => _binData?.Length1 ?? 0;
-        public int RowCount => _binData?.Length2 ?? 0;
-        public int DepthCount => _binData?.Length3 ?? 0;
-
+        public Int4 Size => HasBinData ? _binData.Size : new Int4(0, 0, 0, 0);
+        public int LayerCount => HasBinData ? _binData.Length0 : 0;
+        public int ColumnCount => HasBinData ? _binData.Length1 : 0;
+        public int RowCount => HasBinData ? _binData.Length2 : 0;
+        public int DepthCount => HasBinData ? _binData.Length3 : 0;
+        
         public async UniTask<bool> LoadAsync(string warehouseName)
         {
             var data = await BinDataIO.LoadFromStreamingAssetsAsync($"Warehouse/{warehouseName}.dat");
@@ -23,7 +24,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             {
                 Debug.LogError($"[Warehouse] 读取仓库数据失败: {warehouseName}");
                 IsReady = false;
-                _binData = null;
+                _binData = default;
                 return false;
             }
 
@@ -37,7 +38,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             if (data == null)
             {
                 IsReady = false;
-                _binData = null;
+                _binData = default;
                 return;
             }
 
