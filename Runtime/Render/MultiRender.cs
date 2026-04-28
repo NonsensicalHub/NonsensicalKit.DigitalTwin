@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using NaughtyAttributes;
 using NonsensicalKit.Core;
 using NonsensicalKit.Tools;
@@ -12,18 +13,25 @@ using UnityEditor;
 
 namespace NonsensicalKit.DigitalTwin.Render
 {
-    public class MultiRender : MonoBehaviour
+    public class MultiRender : NonsensicalMono
     {
         [SerializeField] private List<RenderSetting> m_settings;
         [SerializeField] private ReflectionProbe m_probe;
         [SerializeField] private bool m_refreshTrans;
 
+        public bool RefreshTrans
+        {
+            get=> m_refreshTrans;
+            set => m_refreshTrans = value;
+        }
+        
         private void Awake()
         {
             Init();
-            IOCC.AddListener<bool>("isInAnimationTiming", RealTimeRefreshTrans);
-            IOCC.AddListener<bool>("realTimeModelRefreshTrans", RealTimeRefreshTrans);
+            AddListener<bool>("isInAnimationTiming", RealTimeRefreshTrans);
+            AddListener<bool>("realTimeModelRefreshTrans", RealTimeRefreshTrans);
         }
+
 
         private void Update()
         {
@@ -38,6 +46,11 @@ namespace NonsensicalKit.DigitalTwin.Render
 
         private void Init()
         {
+            if (m_settings == null)
+            {
+                return;
+            }
+
             foreach (var setting in m_settings)
             {
                 foreach (var VARIABLE in setting.m_LoadTrans)
@@ -62,6 +75,11 @@ namespace NonsensicalKit.DigitalTwin.Render
 
         private void Render()
         {
+            if (m_settings == null)
+            {
+                return;
+            }
+
             foreach (var setting in m_settings)
             {
                 setting.RenderMesh();
@@ -70,6 +88,11 @@ namespace NonsensicalKit.DigitalTwin.Render
 
         private void RefreshTransMatrix()
         {
+            if (m_settings == null)
+            {
+                return;
+            }
+
             foreach (var setting in m_settings)
             {
                 setting.Update();
@@ -161,12 +184,23 @@ namespace NonsensicalKit.DigitalTwin.Render
         [Button]
         private void ClearNullTrans()
         {
+            if (m_settings == null)
+            {
+                return;
+            }
+
             for (int i = 0; i < m_settings.Count; i++)
             {
                 if (m_settings[i].m_Prefab == null)
                 {
                     m_settings.RemoveAt(i);
                     i--;
+                    continue;
+                }
+
+                if (i < 0 || i >= m_settings.Count || m_settings[i] == null)
+                {
+                    continue;
                 }
 
                 for (int j = 0; j < m_settings[i].m_LoadTrans.Count; j++)
@@ -188,6 +222,7 @@ namespace NonsensicalKit.DigitalTwin.Render
         public GameObject m_Prefab;
         public List<Transform> m_LoadTrans = new List<Transform>();
         private List<PartInfo> _parts;
+        private readonly List<Matrix4x4> _transCache = new List<Matrix4x4>();
 
         public void Init(ReflectionProbe mainReflectionProbe = null)
         {
@@ -210,7 +245,7 @@ namespace NonsensicalKit.DigitalTwin.Render
 
         public void Update()
         {
-            List<Matrix4x4> trans = new List<Matrix4x4>();
+            _transCache.Clear();
             foreach (var t in m_LoadTrans)
             {
                 if (t == null)
@@ -220,13 +255,13 @@ namespace NonsensicalKit.DigitalTwin.Render
 
                 if (t.gameObject.activeInHierarchy)
                 {
-                    trans.Add(t.localToWorldMatrix);
+                    _transCache.Add(t.localToWorldMatrix);
                 }
             }
 
             foreach (var item in _parts)
             {
-                item.UpdateTrans(trans);
+                item.UpdateTrans(_transCache);
             }
         }
 
@@ -289,33 +324,31 @@ namespace NonsensicalKit.DigitalTwin.Render
 
         public void UpdateTrans(List<Matrix4x4> trans)
         {
-            int less = trans.Count;
-            int patch = (less - 1) / 1023 + 1;
-            Trans = new Matrix4x4[patch][];
-            int index = 0;
-            int patchIndex = 0;
-            foreach (var item in trans)
+            int totalCount = trans.Count;
+            if (totalCount <= 0)
             {
-                if (index == 0)
+                Trans = Array.Empty<Matrix4x4[]>();
+                return;
+            }
+
+            int patchCount = (totalCount - 1) / 1023 + 1;
+            if (Trans == null || Trans.Length != patchCount)
+            {
+                Trans = new Matrix4x4[patchCount][];
+            }
+
+            for (int patchIndex = 0; patchIndex < patchCount; patchIndex++)
+            {
+                int chunkStart = patchIndex * 1023;
+                int chunkLength = Mathf.Min(1023, totalCount - chunkStart);
+                if (Trans[patchIndex] == null || Trans[patchIndex].Length != chunkLength)
                 {
-                    if (less >= 1023)
-                    {
-                        Trans[patchIndex] = new Matrix4x4[1023];
-                        less -= 1023;
-                    }
-                    else
-                    {
-                        Trans[patchIndex] = new Matrix4x4[less];
-                        less = 0;
-                    }
+                    Trans[patchIndex] = new Matrix4x4[chunkLength];
                 }
 
-                Trans[patchIndex][index] = item * Offset;
-                index++;
-                if (index == 1023)
+                for (int i = 0; i < chunkLength; i++)
                 {
-                    index = 0;
-                    patchIndex++;
+                    Trans[patchIndex][i] = trans[chunkStart + i] * Offset;
                 }
             }
         }

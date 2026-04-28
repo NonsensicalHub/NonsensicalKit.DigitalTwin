@@ -420,7 +420,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 }
             }
 
-            return new WarehouseData(bins, new Int4(rowCount, columnCount, levelCount, depthCount));
+            return new WarehouseData(bins, new Int4(levelCount, columnCount, rowCount, depthCount));
         }
 
         /// <summary>

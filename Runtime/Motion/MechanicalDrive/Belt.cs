@@ -11,10 +11,31 @@ namespace NonsensicalKit.DigitalTwin.Motion
         [SerializeField] private BeltLoader m_loader;
 
         protected Renderer Renderer;
+        private Material _runtimeMaterial;
 
         protected virtual void Awake()
         {
             Renderer = GetComponent<Renderer>();
+            _runtimeMaterial = Renderer.material;
+        }
+
+        protected virtual void OnDestroy()
+        {
+            if (_runtimeMaterial == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Object.Destroy(_runtimeMaterial);
+            }
+            else
+            {
+                Object.DestroyImmediate(_runtimeMaterial);
+            }
+
+            _runtimeMaterial = null;
         }
 
         public override void Drive(float power, DriveType driveType)
@@ -28,11 +49,11 @@ namespace NonsensicalKit.DigitalTwin.Motion
             m_loader?.Move(power * m_ratio);
             if (m_isXDir)
             {
-                Renderer.material.mainTextureOffset += new Vector2(power * m_ratio, 0);
+                _runtimeMaterial.mainTextureOffset += new Vector2(power * m_ratio, 0);
             }
             else
             {
-                Renderer.material.mainTextureOffset += new Vector2(0, power * m_ratio);
+                _runtimeMaterial.mainTextureOffset += new Vector2(0, power * m_ratio);
             }
         }
     }

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using NonsensicalKit.Core;
 using NonsensicalKit.Core.Log;
@@ -61,7 +60,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
         /// 每次报警后缓存点位，防止重复报警
         /// </summary>
         private readonly HashSet<string> _loggedPoints = new();
-        private  Dictionary<string, string> buffer = new Dictionary<string, string>();
+        private readonly Dictionary<string, string> _partNameBuffer = new Dictionary<string, string>();
 
 
         private readonly HashSet<string> _catchIDs = new HashSet<string>();
@@ -109,18 +108,18 @@ namespace NonsensicalKit.DigitalTwin.Motion
                 string partID = config.partID;
                 if (_partPointsPair.ContainsKey(partID))
                 {
-                    errorMessage.Add($"重复的部件ID{partID}在{config.partName}和{buffer[partID]}中");
+                    errorMessage.Add($"重复的部件ID{partID}在{config.partName}和{_partNameBuffer[partID]}中");
                     continue;
                 }
 
-                buffer.Add(partID, config.partName);
+                _partNameBuffer.Add(partID, config.partName);
 
                 Dictionary<string, PointDataBuffer> pointIDs = new Dictionary<string, PointDataBuffer>();
                 foreach (var point in config.pointConfigs)
                 {
                     if (pointIDs.ContainsKey(point.pointID))
                     {
-                        errorMessage.Add($"{partID}部件中重复的点位ID{point}在{config.partName}和{buffer[partID]}中");
+                        errorMessage.Add($"{partID}部件中重复的点位ID{point.pointID}在{config.partName}和{_partNameBuffer[partID]}中");
                         continue;
                     }
 
@@ -192,7 +191,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
 
             if (!_catching)
             {
-                CheckParts(IDs.ToList());
+                CheckParts(IDs);
             }
         }
 
@@ -237,7 +236,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
         public void Flush()
         {
             _catching = false;
-            CheckParts(_catchIDs.ToList());
+            CheckParts(_catchIDs);
             _catchIDs.Clear();
         }
 
@@ -246,7 +245,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
         /// 单点位修改模式下改为检测是否至少有一个点位更新
         /// </summary>
         /// <param name="partIDs"></param>
-        private void CheckParts(List<string> partIDs)
+        private void CheckParts(IEnumerable<string> partIDs)
         {
             foreach (var partID in partIDs)
             {

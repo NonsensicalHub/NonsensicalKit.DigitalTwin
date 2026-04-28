@@ -6,11 +6,9 @@
         "NonsensicalKit.UGUI",
         "Unity.TextMeshPro",
         "Cinemachine",
-        "NonsensicalKit.WebGL.Editor",
         "NonsensicalKit.WebGL",
-        "Unity.Cinemachine",
-        "SocketIOUnityAssembly",
-        "UniTask"
+        "UniTask",
+        "Unity.Cinemachine"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -68,6 +68,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         private bool _canRenderB = false;
         private int _updateTicket = 0;
         private bool _released = false;
+        private readonly object _releaseLock = new object();
 
 
         /// <summary>
@@ -89,30 +90,29 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             _rpB = CreateRenderParams(material);
         }
 
-        ~RenderObject()
-        {
-            Release();
-        }
-
         /// <summary>
-        /// 释放 GPU 资源。可被外部主动调用，也会在析构时兜底调用。
+        /// 释放 GPU 资源。必须在主线程显式调用。
         /// </summary>
         public void Release()
         {
-            if (_released)
+            lock (_releaseLock)
             {
-                return;
-            }
+                if (_released)
+                {
+                    return;
+                }
 
-            _released = true;
-            _instancesBuffer?.Release();
-            _instancesBuffer = null;
-            _commandBufA?.Release();
-            _commandBufA = null;
-            _commandBufB?.Release();
-            _commandBufB = null;
-            ReturnItemList(_items);
-            _items = null;
+                _released = true;
+                Interlocked.Increment(ref _updateTicket);
+                _instancesBuffer?.Release();
+                _instancesBuffer = null;
+                _commandBufA?.Release();
+                _commandBufA = null;
+                _commandBufB?.Release();
+                _commandBufB = null;
+                ReturnItemList(_items);
+                _items = null;
+            }
         }
 
         /// <summary>
@@ -139,31 +139,33 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             }
 
             await UniTask.SwitchToMainThread();
-
-            if (_released || localTicket != _updateTicket)
+            lock (_releaseLock)
             {
-                ReturnItemList(nextItems);
-                return;
-            }
+                if (_released || localTicket != _updateTicket)
+                {
+                    ReturnItemList(nextItems);
+                    return;
+                }
 
-            SwapItems(nextItems);
-            
-            if (!CanUploadRenderData())
-            {
-                return;
-            }
+                SwapItems(nextItems);
+                
+                if (!CanUploadRenderData())
+                {
+                    return;
+                }
 
-            if (_items.Count == 0)
-            {
-                DisableCurrentWriteTargetRenderFlag();
-            }
-            else
-            {
-                UploadToCurrentWriteTarget();
-            }
+                if (_items.Count == 0)
+                {
+                    DisableCurrentWriteTargetRenderFlag();
+                }
+                else
+                {
+                    UploadToCurrentWriteTarget();
+                }
 
-            // 下一帧切换到另一套缓冲渲染。
-            _renderFromA = !_renderFromA;
+                // 下一帧切换到另一套缓冲渲染。
+                _renderFromA = !_renderFromA;
+            }
         }
 
         /// <summary>

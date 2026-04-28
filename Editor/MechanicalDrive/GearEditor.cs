@@ -14,9 +14,9 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
         {
             Handles.color = Blue;
             Vector3 rotateAxis = Script.transform.TransformVector(Script.RotateAxis);
-            var fuckQ = Quaternion.FromToRotation(Script.transform.forward, rotateAxis);
+            var axisRotation = Quaternion.FromToRotation(Script.transform.forward, rotateAxis);
             Handles.SphereHandleCap(0, Script.transform.position, Quaternion.identity, NodeSize, EventType.Repaint);
-            Handles.CircleHandleCap(0, Script.transform.position, fuckQ * Script.transform.rotation, Script.GearRadius, EventType.Repaint);
+            Handles.CircleHandleCap(0, Script.transform.position, axisRotation * Script.transform.rotation, Script.GearRadius, EventType.Repaint);
             DrawArrow(Script.transform.position, rotateAxis, ArrowLength, NodeSize, "Axis", Blue);
         }
     }

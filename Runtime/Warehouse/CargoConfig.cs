@@ -13,6 +13,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
     public class CargoConfig
     {
         private const float ChunkBoundsPadding = 1.0f;
+        private static readonly Matrix4x4 IdentityMatrix = Matrix4x4.identity;
 
         private readonly GameObject _prefab;
         private readonly Int4 _cellCount;
@@ -24,14 +25,23 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         private Array4<Matrix4x4> _loadTrans;
         private Array4<bool> _loadStates;
         private Array4<bool> _hasBins;
+        private Array4<int> _chunkIndices;
         private Matrix4x4 _ltw;
         private bool _chunkBoundsDirty = true;
         private readonly Plane[] _frustumPlanesCache = new Plane[6];
+        private readonly HashSet<int> _dirtyChunkIndices = new HashSet<int>();
+        private bool _forceFullChunkRefresh = true;
+        private readonly List<int> _chunkIndexWorkCache = new List<int>();
+        private readonly List<RenderChunk> _chunkWorkCache = new List<RenderChunk>();
 
         private readonly object _updateLock = new object();
         private int _updateQueued;
         private int _updateLoopRunning;
         private UniTask[] _updateTasksCache = Array.Empty<UniTask>();
+        private bool _released;
+        public int LastUpdatedChunkCount { get; private set; }
+        public int LastUpdateTaskCount { get; private set; }
+        public int ChunkCount => _chunks?.Count ?? 0;
 
         public CargoConfig(Int4 cellCount, GameObject prefab, Int4 chunkSize, float maxCullDistance)
         {
@@ -49,8 +59,13 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         /// <summary>
         /// 渲染当前货架配置中的所有分块。
         /// </summary>
-        public void RenderLoads(Camera renderCamera, bool render = true)
+        public void RenderLoads(Camera renderCamera, Plane[] precomputedFrustumPlanes = null, bool render = true)
         {
+            if (_released)
+            {
+                return;
+            }
+
             if (!HasChunks())
             {
                 return;
@@ -63,17 +78,41 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
             bool useCull = renderCamera != null;
             var cameraPosition = Vector3.zero;
-            float maxCullDistanceSqr = _maxCullDistance * _maxCullDistance;
+            float maxCullDistanceSqr = 0f;
             if (useCull)
             {
                 cameraPosition = renderCamera.transform.position;
-                GeometryUtility.CalculateFrustumPlanes(renderCamera, _frustumPlanesCache);
+                maxCullDistanceSqr = _maxCullDistance * _maxCullDistance;
+                if (precomputedFrustumPlanes != null && precomputedFrustumPlanes.Length >= 6)
+                {
+                    for (int i = 0; i < 6; i++)
+                    {
+                        _frustumPlanesCache[i] = precomputedFrustumPlanes[i];
+                    }
+                }
+                else
+                {
+                    GeometryUtility.CalculateFrustumPlanes(renderCamera, _frustumPlanesCache);
+                }
             }
 
             if (_chunkBoundsDirty)
             {
                 UpdateChunkWorldBounds();
                 _chunkBoundsDirty = false;
+            }
+
+            if (!useCull)
+            {
+                foreach (var chunk in _chunks)
+                {
+                    foreach (var part in chunk.Parts)
+                    {
+                        part.Render(true);
+                    }
+                }
+
+                return;
             }
 
             foreach (var chunk in _chunks)
@@ -96,6 +135,18 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         /// </summary>
         public void Release()
         {
+            if (_released)
+            {
+                return;
+            }
+
+            lock (_updateLock)
+            {
+                _released = true;
+                _updateQueued = 0;
+                _dirtyChunkIndices.Clear();
+            }
+
             if (!HasChunks())
             {
                 return;
@@ -115,17 +166,17 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         /// </summary>
         public void SetNewState(Int4 location, Matrix4x4 trans, bool show, bool autoUpdate)
         {
+            if (_released)
+            {
+                return;
+            }
+
             if (!HasPartTemplates())
             {
                 return;
             }
 
-            lock (_updateLock)
-            {
-                _loadTrans[location] = trans;
-                _loadStates[location] = show;
-                _hasBins[location] = true;
-            }
+            SetNewStateCore(location, trans, show);
 
             if (autoUpdate)
             {
@@ -133,22 +184,24 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             }
         }
 
+        
+        
         /// <summary>
         /// 按四维索引更新货物状态。
         /// </summary>
         public void SetNewState(int layer, int column, int row, int depth, Matrix4x4 trans, bool show, bool autoUpdate)
         {
+            if (_released)
+            {
+                return;
+            }
+
             if (!HasPartTemplates())
             {
                 return;
             }
 
-            lock (_updateLock)
-            {
-                _loadTrans[layer, column, row, depth] = trans;
-                _loadStates[layer, column, row, depth] = show;
-                _hasBins[layer, column, row, depth] = true;
-            }
+            SetNewStateCore(layer, column, row, depth, trans, show);
 
             if (autoUpdate)
             {
@@ -161,6 +214,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         /// </summary>
         public void UpdateWarehouseTransform(Matrix4x4 ltw, bool autoUpdate)
         {
+            if (_released)
+            {
+                return;
+            }
+
             if (!HasPartTemplates())
             {
                 return;
@@ -175,6 +233,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
                 _ltw = ltw;
                 _chunkBoundsDirty = true;
+                _forceFullChunkRefresh = true;
             }
 
             if (autoUpdate)
@@ -188,6 +247,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         /// </summary>
         public async UniTask UpdateParts()
         {
+            if (_released)
+            {
+                return;
+            }
+
             if (!HasPartTemplates())
             {
                 return;
@@ -204,15 +268,34 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             {
                 while (Interlocked.Exchange(ref _updateQueued, 0) == 1)
                 {
-                    InitializeChunksIfNeeded();
-                    await UniTask.SwitchToThreadPool();
-                    BuildChunkRenderInput();
-                    await UniTask.SwitchToMainThread();
+                    if (_released)
+                    {
+                        break;
+                    }
 
-                    int taskCount = GetUpdateTaskCount();
+                    InitializeChunksIfNeeded();
+                    CollectChunksToProcess();
+                    if (_chunkWorkCache.Count == 0)
+                    {
+                        LastUpdatedChunkCount = 0;
+                        LastUpdateTaskCount = 0;
+                        continue;
+                    }
+
+                    await UniTask.SwitchToThreadPool();
+                    BuildChunkRenderInput(_chunkWorkCache);
+                    await UniTask.SwitchToMainThread();
+                    if (_released)
+                    {
+                        break;
+                    }
+
+                    int taskCount = GetUpdateTaskCount(_chunkWorkCache.Count);
+                    LastUpdatedChunkCount = _chunkWorkCache.Count;
+                    LastUpdateTaskCount = taskCount;
                     EnsureTaskCacheCapacity(taskCount);
                     int taskIndex = 0;
-                    foreach (var chunk in _chunks)
+                    foreach (var chunk in _chunkWorkCache)
                     {
                         foreach (var part in chunk.Parts)
                         {
@@ -229,7 +312,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             finally
             {
                 Interlocked.Exchange(ref _updateLoopRunning, 0);
-                if (Interlocked.Exchange(ref _updateQueued, 0) == 1)
+                if (!_released && Interlocked.Exchange(ref _updateQueued, 0) == 1)
                 {
                     UpdateParts().Forget();
                 }
@@ -284,12 +367,12 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             }
         }
 
-        private void BuildChunkRenderInput()
+        private void BuildChunkRenderInput(List<RenderChunk> chunksToUpdate)
         {
             lock (_updateLock)
             {
                 Matrix4x4 ltw = _ltw;
-                foreach (var chunk in _chunks)
+                foreach (var chunk in chunksToUpdate)
                 {
                     int index = 0;
                     for (int layer = chunk.LayerStart; layer < chunk.LayerEnd; layer++)
@@ -301,7 +384,15 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                                 for (int depth = chunk.DepthStart; depth < chunk.DepthEnd; depth++)
                                 {
                                     bool hasBin = _hasBins[layer, column, row, depth];
-                                    chunk.Transforms[index] = ltw * _loadTrans[layer, column, row, depth];
+                                    if (hasBin)
+                                    {
+                                        chunk.Transforms[index] = ltw * _loadTrans[layer, column, row, depth];
+                                    }
+                                    else
+                                    {
+                                        // 没有货位的数据不参与渲染，避免无意义矩阵乘法。
+                                        chunk.Transforms[index] = IdentityMatrix;
+                                    }
                                     chunk.States[index] = hasBin && _loadStates[layer, column, row, depth];
                                     index++;
                                 }
@@ -320,6 +411,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             }
 
             _chunks = new List<RenderChunk>();
+            _chunkIndices = new Array4<int>(_cellCount.X, _cellCount.Y, _cellCount.Z, _cellCount.W);
+            InitializeChunkIndices();
 
             int chunkLayerSize = _chunkSize.X;
             int chunkColumnSize = _chunkSize.Y;
@@ -342,7 +435,9 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                                 depthStart, depthEnd);
                             if (chunk != null)
                             {
+                                int chunkIndex = _chunks.Count;
                                 _chunks.Add(chunk);
+                                RegisterChunkIndex(chunk, chunkIndex);
                             }
                         }
                     }
@@ -350,6 +445,10 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             }
 
             _chunkBoundsDirty = true;
+            lock (_updateLock)
+            {
+                _forceFullChunkRefresh = true;
+            }
         }
 
         private RenderChunk CreateChunk(
@@ -405,14 +504,14 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             _updateTasksCache = new UniTask[length];
         }
 
-        private int GetUpdateTaskCount()
+        private int GetUpdateTaskCount(int chunkCount)
         {
-            if (!HasChunks() || !HasPartTemplates())
+            if (!HasPartTemplates() || chunkCount <= 0)
             {
                 return 0;
             }
 
-            return _chunks.Count * _partTemplates.Count;
+            return chunkCount * _partTemplates.Count;
         }
 
         private void UpdateChunkWorldBounds()
@@ -422,9 +521,15 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 return;
             }
 
+            Matrix4x4 ltw;
+            lock (_updateLock)
+            {
+                ltw = _ltw;
+            }
+
             foreach (var chunk in _chunks)
             {
-                chunk.WorldBounds = TransformBounds(_ltw, chunk.LocalBounds);
+                chunk.WorldBounds = TransformBounds(ltw, chunk.LocalBounds);
             }
         }
 
@@ -551,6 +656,132 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             return _chunks != null && _chunks.Count > 0;
         }
 
+        private void SetNewStateCore(Int4 location, Matrix4x4 trans, bool show)
+        {
+            lock (_updateLock)
+            {
+                _loadTrans[location] = trans;
+                _loadStates[location] = show;
+                _hasBins[location] = true;
+                MarkDirtyChunkByLocation(location);
+            }
+        }
+
+        private void SetNewStateCore(int layer, int column, int row, int depth, Matrix4x4 trans, bool show)
+        {
+            lock (_updateLock)
+            {
+                _loadTrans[layer, column, row, depth] = trans;
+                _loadStates[layer, column, row, depth] = show;
+                _hasBins[layer, column, row, depth] = true;
+                MarkDirtyChunkByLocation(layer, column, row, depth);
+            }
+        }
+
+        private void CollectChunksToProcess()
+        {
+            _chunkWorkCache.Clear();
+            _chunkIndexWorkCache.Clear();
+            lock (_updateLock)
+            {
+                if (_released)
+                {
+                    return;
+                }
+
+                if (!HasChunks())
+                {
+                    return;
+                }
+
+                if (_forceFullChunkRefresh)
+                {
+                    for (int i = 0; i < _chunks.Count; i++)
+                    {
+                        _chunkIndexWorkCache.Add(i);
+                    }
+                }
+                else
+                {
+                    foreach (int chunkIndex in _dirtyChunkIndices)
+                    {
+                        _chunkIndexWorkCache.Add(chunkIndex);
+                    }
+                }
+
+                _dirtyChunkIndices.Clear();
+                _forceFullChunkRefresh = false;
+            }
+
+            for (int i = 0; i < _chunkIndexWorkCache.Count; i++)
+            {
+                int chunkIndex = _chunkIndexWorkCache[i];
+                if (chunkIndex >= 0 && chunkIndex < _chunks.Count)
+                {
+                    _chunkWorkCache.Add(_chunks[chunkIndex]);
+                }
+            }
+        }
+
+        private void MarkDirtyChunkByLocation(Int4 location)
+        {
+            MarkDirtyChunkByLocation(location.X, location.Y, location.Z, location.W);
+        }
+        private void MarkDirtyChunkByLocation(int layer, int column, int row, int depth)
+        {
+            if (_chunkIndices == null)
+            {
+                _forceFullChunkRefresh = true;
+                return;
+            }
+
+            int chunkIndex = _chunkIndices[layer, column, row, depth];
+            if (chunkIndex >= 0)
+            {
+                _dirtyChunkIndices.Add(chunkIndex);
+            }
+        }
+
+        private void InitializeChunkIndices()
+        {
+            for (int layer = 0; layer < _cellCount.X; layer++)
+            {
+                for (int column = 0; column < _cellCount.Y; column++)
+                {
+                    for (int row = 0; row < _cellCount.Z; row++)
+                    {
+                        for (int depth = 0; depth < _cellCount.W; depth++)
+                        {
+                            _chunkIndices[layer, column, row, depth] = -1;
+                        }
+                    }
+                }
+            }
+        }
+        
+
+        private void RegisterChunkIndex(RenderChunk chunk, int chunkIndex)
+        {
+            if (_chunkIndices == null)
+            {
+                return;
+            }
+
+            for (int layer = chunk.LayerStart; layer < chunk.LayerEnd; layer++)
+            {
+                for (int column = chunk.ColumnStart; column < chunk.ColumnEnd; column++)
+                {
+                    for (int row = chunk.RowStart; row < chunk.RowEnd; row++)
+                    {
+                        for (int depth = chunk.DepthStart; depth < chunk.DepthEnd; depth++)
+                        {
+                            _chunkIndices[layer, column, row, depth] = chunkIndex;
+                        }
+                    }
+                }
+            }
+        }
+        
         private readonly struct PartTemplate
         {
             public readonly Mesh Mesh;
