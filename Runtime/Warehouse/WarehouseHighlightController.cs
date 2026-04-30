@@ -18,8 +18,9 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             return _highlightCargo != null || _highlightIndicator != null;
         }
 
-        public bool Locate(Transform warehouseTransform, RuntimeBinData binData, bool setActive)
+        public bool Locate(Transform warehouseTransform, RuntimeBinData binData)
         {
+            Debug.Log("?????");
             if (warehouseTransform == null || binData == null)
             {
                 return false;
@@ -42,17 +43,14 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 highlightIndicatorTransform.rotation = worldRot;
             }
 
-            if (setActive)
+            if (_highlightCargo != null)
             {
-                if (_highlightCargo != null)
-                {
-                    _highlightCargo.SetActive(binData.ShowCargo);
-                }
+                _highlightCargo.SetActive(binData.ShowCargo);
+            }
 
-                if (_highlightIndicator != null)
-                {
-                    _highlightIndicator.SetActive(true);
-                }
+            if (_highlightIndicator != null)
+            {
+                _highlightIndicator.SetActive(true);
             }
 
             return true;

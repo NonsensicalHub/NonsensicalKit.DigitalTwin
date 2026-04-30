@@ -9,7 +9,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
     /// 货位索引规则：x 为 layer，y 为 column，z 为 row，w 为 depth。
     /// 维度顺序为“层、列、排、深”。
     /// </summary>
-    public class WarehouseManager : MonoBehaviour
+    public sealed class WarehouseManager : NonsensicalMono
     {
         [SerializeField] private string m_warehouseName;
         [SerializeField] private GameObject[] m_cargoPrefabs;
@@ -30,7 +30,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         private readonly WarehouseBinDataStore _binDataStore = new WarehouseBinDataStore();
         private readonly WarehouseUpdateScheduler _updateScheduler = new WarehouseUpdateScheduler();
         private WarehouseHighlightController _highlightController;
-        private bool _destroying;
+        private bool _destroying; 
+
         private float _nextPerfLogTime;
 
         private void OnValidate()
@@ -41,6 +42,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         private void Awake()
         {
             _highlightController = new WarehouseHighlightController(m_highlightCargo, m_highlightIndicator);
+
+
             Init().Forget();
         }
 
@@ -76,8 +79,9 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             LogPerfIfNeeded();
         }
 
-        private void OnDestroy()
+        protected override void OnDestroy()
         {
+            base.OnDestroy();
             _destroying = true;
             _updateScheduler.ClearPending();
             if (!HasCargoConfigs()) return;
@@ -93,7 +97,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 Matrix4x4 matrix = Matrix4x4.TRS(binData.Pos + offset, rotation, Vector3.one);
                 ApplyToConfigs(cellLocation, matrix, binData.ShowCargo);
             });
-            QueueAllConfigsUpdate();
+
+            RequestConfigUpdate();
         }
 
         public void SetColumnState(int columnIndex, bool state)
@@ -105,7 +110,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 Matrix4x4 matrix = Matrix4x4.TRS(binData.Pos, rotation, Vector3.one);
                 ApplyToConfigs(cellLocation, matrix, state);
             });
-            QueueAllConfigsUpdate();
+
+            RequestConfigUpdate();
         }
 
         public void SetCargoState(Int4[] cellsLocation, Vector3[] cellsPos, bool autoUpdate = false)
@@ -153,7 +159,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             if (autoUpdate) RequestConfigUpdate();
         }
 
-        public bool LocateHighlightBin(Int4 cellLocation, bool setActive = true)
+        public bool LocateHighlightBin(Int4 cellLocation)
         {
             if (!_highlightController.CanHighlight())
             {
@@ -163,26 +169,21 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
             if (!_binDataStore.TryGet(cellLocation, out RuntimeBinData binData))
             {
-                if (setActive) HideHighlightBin();
+                HideHighlightBin();
                 return false;
             }
 
-            return _highlightController.Locate(transform, binData, setActive);
+            return _highlightController.Locate(transform, binData);
         }
 
-        public bool LocateHighlightBin(int layer, int column, int row, int depth, bool setActive = true)
+        public bool LocateHighlightBin(int layer, int column, int row, int depth)
         {
-            return LocateHighlightBin(new Int4(layer, column, row, depth), setActive);
+            return LocateHighlightBin(new Int4(layer, column, row, depth));
         }
 
         public void HideHighlightBin()
         {
             _highlightController.Hide();
-        }
-
-        private void QueueAllConfigsUpdate()
-        {
-            RequestConfigUpdate();
         }
 
         private bool CanProcessColumn(int columnIndex)
@@ -217,7 +218,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 applyAction(cellsLocation[i], values[i]);
             }
 
-            if (autoUpdate) QueueAllConfigsUpdate();
+            if (autoUpdate) RequestConfigUpdate();
         }
 
         private void ApplyToConfigs(Int4 cellLocation, Matrix4x4 matrix, bool show)
@@ -248,10 +249,20 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         private async UniTaskVoid Init()
         {
+            if (_inited) return;
             bool loaded = await ReadDataFile();
             if (!loaded) return;
             await InitCargo();
+
+            Subscribe();
         }
+        
+        private void Subscribe()
+        {
+            AddHandler<Int4, bool>("LocateHighlightBin", m_warehouseName, LocateHighlightBin);
+            Subscribe("HideHighlightBin", m_warehouseName, HideHighlightBin);
+        }
+
 
         private async UniTask<bool> ReadDataFile()
         {

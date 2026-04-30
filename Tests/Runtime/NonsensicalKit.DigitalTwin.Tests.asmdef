@@ -3,7 +3,8 @@
     "rootNamespace": "",
     "references": [
         "UnityEngine.TestRunner",
-        "NonsensicalKit.DigitalTwin"
+        "NonsensicalKit.DigitalTwin",
+        "NonsensicalKit.Core"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

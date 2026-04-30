@@ -235,7 +235,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 #endif
         }
 
-        internal static Int4 InferDimensions(BinData[] bins)
+        public static Int4 InferDimensions(BinData[] bins)
         {
             if (bins == null || bins.Length == 0)
                 return new Int4(0, 0, 0, 0);

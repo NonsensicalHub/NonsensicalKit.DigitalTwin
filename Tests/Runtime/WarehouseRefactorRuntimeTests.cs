@@ -1,10 +1,11 @@
 using System;
+using System.Collections;
 using System.Reflection;
 using NonsensicalKit.Core;
-using NonsensicalKit.DigitalTwin.Warehouse;
 using NUnit.Framework;
+using UnityEngine.TestTools;
 
-namespace NonsensicalKit.DigitalTwin.Tests
+namespace NonsensicalKit.DigitalTwin.Warehouse.Tests
 {
     public class WarehouseRefactorRuntimeTests
     {
@@ -119,6 +120,66 @@ namespace NonsensicalKit.DigitalTwin.Tests
             Assert.IsFalse(valid);
             StringAssert.Contains("m_cargoPrefabs", args[0]?.ToString());
         }
+        
+        [Test]
+        public void WarehouseDataCreate_ShouldInferDimensions()
+        {
+            var bins = new[]
+            {
+                new BinData { Level = 0, Column = 1, Row = 2, Depth = 0 },
+                new BinData { Level = 3, Column = 4, Row = 5, Depth = 1 }
+            };
+
+            var data = WarehouseData.Create(bins);
+
+            Assert.AreEqual(4, data.Dimensions.X);
+            Assert.AreEqual(5, data.Dimensions.Y);
+            Assert.AreEqual(6, data.Dimensions.Z);
+            Assert.AreEqual(2, data.Dimensions.W);
+        }
+
+        // A UnityTest behaves like a coroutine in PlayMode
+        // and allows you to yield null to skip a frame in EditMode
+        [UnityTest]
+        public IEnumerator WarehouseDataCreate_WithNullBins_ShouldYieldEmptyDimensions()
+        {
+            var data = WarehouseData.Create(null);
+            Assert.AreEqual(0, data.Dimensions.X);
+            Assert.AreEqual(0, data.Dimensions.Y);
+            Assert.AreEqual(0, data.Dimensions.Z);
+            Assert.AreEqual(0, data.Dimensions.W);
+            yield return null;
+        }
+        
+        [Test]
+        public void InferDimensions_WithSparseInput_ShouldReturnMaxIndexPlusOne()
+        {
+            var bins = new[]
+            {
+                new BinData { Level = 2, Column = 0, Row = 1, Depth = 0 },
+                new BinData { Level = 1, Column = 3, Row = 0, Depth = 4 }
+            };
+
+            var inferred = BinDataIO.InferDimensions(bins);
+
+            Assert.AreEqual(3, inferred.X);
+            Assert.AreEqual(4, inferred.Y);
+            Assert.AreEqual(2, inferred.Z);
+            Assert.AreEqual(5, inferred.W);
+        }
+
+        // A UnityTest behaves like a coroutine in PlayMode
+        // and allows you to yield null to skip a frame in EditMode
+        [UnityTest]
+        public IEnumerator InferDimensions_WithEmptyInput_ShouldReturnZero()
+        {
+            var inferred = BinDataIO.InferDimensions(new BinData[0]);
+            Assert.AreEqual(0, inferred.X);
+            Assert.AreEqual(0, inferred.Y);
+            Assert.AreEqual(0, inferred.Z);
+            Assert.AreEqual(0, inferred.W);
+            yield return null;
+        }
 
         private static object InvokeInstance(Type type, object target, string methodName, params object[] args)
         {
@@ -133,5 +194,6 @@ namespace NonsensicalKit.DigitalTwin.Tests
             Assert.IsNotNull(property, $"Property not found: {propertyName}");
             return property.GetValue(target);
         }
+        
     }
 }
