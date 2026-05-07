@@ -68,11 +68,16 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 frustumPlanes = _frameFrustumPlanes;
             }
 
+            // WebGL：块包围盒 + 视锥在部分项目/浏览器组合下易误判，导致整块不画；实例绘制本身已有超大 worldBounds。
+            bool skipChunkCull = Application.platform == RuntimePlatform.WebGLPlayer;
+            Camera effectiveRenderCamera = skipChunkCull ? null : renderCamera;
+            Plane[] effectiveFrustumPlanes = skipChunkCull ? null : frustumPlanes;
+
             foreach (var config in _cargoConfigs)
             {
                 if (config == null) continue;
                 if (transformDirty) config.UpdateWarehouseTransform(_ltwMatrix, false);
-                config.RenderLoads(renderCamera, frustumPlanes);
+                config.RenderLoads(effectiveRenderCamera, effectiveFrustumPlanes);
             }
 
             TryExecuteScheduledConfigUpdate();
@@ -287,7 +292,14 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 _ltwMatrix = transform.localToWorldMatrix;
                 _cargoConfigs = initializer.CreateConfigs(_ltwMatrix);
                 Quaternion initRotation = transform.rotation;
-                await UniTask.RunOnThreadPool(() => initializer.BuildInitialStates(_cargoConfigs, initRotation));
+                if (WarehousePlatformCompat.CpuInstancingBuildMustUseMainThread)
+                {
+                    initializer.BuildInitialStates(_cargoConfigs, initRotation);
+                }
+                else
+                {
+                    await UniTask.RunOnThreadPool(() => initializer.BuildInitialStates(_cargoConfigs, initRotation));
+                }
 
                 foreach (var item in _cargoConfigs) item?.UpdateParts().Forget();
                 await UniTask.SwitchToMainThread();

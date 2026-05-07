@@ -282,7 +282,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                         continue;
                     }
 
-                    await UniTask.SwitchToThreadPool();
+                    if (!WarehousePlatformCompat.CpuInstancingBuildMustUseMainThread)
+                    {
+                        await UniTask.SwitchToThreadPool();
+                    }
+
                     BuildChunkRenderInput(_chunkWorkCache);
                     await UniTask.SwitchToMainThread();
                     if (_released)
@@ -353,14 +357,18 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
                     for (int i = 0; i < renderer.sharedMaterials.Length; i++)
                     {
-                        if (renderer.sharedMaterials[i] == null)
+                        Material mat = renderer.sharedMaterials[i];
+                        if (mat == null)
                         {
                             continue;
                         }
 
+                        // WebGL 等对 RenderMeshInstanced / DrawMeshInstanced 要求材质开启 GPU 实例化。
+                        mat.enableInstancing = true;
+
                         _partTemplates.Add(new PartTemplate(
                             item.sharedMesh,
-                            renderer.sharedMaterials[i],
+                            mat,
                             _prefab.transform.worldToLocalMatrix * item.transform.localToWorldMatrix));
                     }
                 }
@@ -475,7 +483,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             var parts = new List<RenderObject>(_partTemplates.Count);
             foreach (var template in _partTemplates)
             {
-                parts.Add(new RenderObject(template.Mesh, template.Material, template.Offset));
+                parts.Add(RenderObject.Create(template.Mesh, template.Material, template.Offset));
             }
 
             return new RenderChunk(

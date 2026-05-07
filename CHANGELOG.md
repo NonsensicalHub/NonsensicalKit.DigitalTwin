@@ -28,3 +28,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Removed
 
 - 删除冗余的模块及示例
+
+## [1.1.2] - 2026-05-07
+
+### Fixed
+
+- 修复WarehouseManager的多个问题
