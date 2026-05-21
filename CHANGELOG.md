@@ -34,3 +34,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 - 修复WarehouseManager的多个问题
+
+## [1.1.3] - 2026-05-07
+
+### Added
+- 新增本机作为Socket主机的功能
