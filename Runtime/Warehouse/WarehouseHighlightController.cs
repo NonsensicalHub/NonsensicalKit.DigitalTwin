@@ -20,7 +20,6 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         public bool Locate(Transform warehouseTransform, RuntimeBinData binData)
         {
-            Debug.Log("?????");
             if (warehouseTransform == null || binData == null)
             {
                 return false;

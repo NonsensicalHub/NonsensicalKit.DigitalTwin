@@ -40,7 +40,7 @@ namespace NonsensicalKit.DigitalTwin.Editor.MechanicalDrive
 
         #region Private Method
 
-        [MenuItem("NonsensicalKit/Anchor Editor")]
+        [MenuItem("Tools/NonsensicalKit/Anchor Editor")]
         private static void ShowEditor()
         {
             TargetChain = GetChainFromSelection();

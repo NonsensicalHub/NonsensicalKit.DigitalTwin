@@ -1,7 +1,9 @@
 using System;
 using Cysharp.Threading.Tasks;
+using NaughtyAttributes;
 using NonsensicalKit.Core;
 using UnityEngine;
+using UnityEngine.Events;
 
 namespace NonsensicalKit.DigitalTwin.Warehouse
 {
@@ -23,7 +25,13 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         public bool Inited => _inited;
 
+        /// <summary>
+        /// 全仓库货物实例的全局显隐乘数 [0,1]（材质 <c>_DitherVisibility</c>，与各格位显隐相乘）。
+        /// </summary>
+        public float GlobalCargoVisibility => _globalCargoVisibility;
+
         private bool _inited;
+        private float _globalCargoVisibility = 1f;
         private CargoConfig[] _cargoConfigs;
         private Matrix4x4 _ltwMatrix;
         private readonly Plane[] _frameFrustumPlanes = new Plane[6];
@@ -34,6 +42,14 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         private float _nextPerfLogTime;
 
+        public UnityEvent<float> ChangeGlobalCargoVisibility;
+
+        public void Change(float value)
+        {
+            SetGlobalCargoVisibility(value);
+        }
+
+        
         private void OnValidate()
         {
             if (m_chunkCullDistance < 0f) m_chunkCullDistance = 0f;
@@ -41,6 +57,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         private void Awake()
         {
+            ChangeGlobalCargoVisibility.AddListener(Change);
             _highlightController = new WarehouseHighlightController(m_highlightCargo, m_highlightIndicator);
 
 
@@ -100,7 +117,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             _binDataStore.ApplyToColumn(columnIndex, (cellLocation, binData) =>
             {
                 Matrix4x4 matrix = Matrix4x4.TRS(binData.Pos + offset, rotation, Vector3.one);
-                ApplyToConfigs(cellLocation, matrix, binData.ShowCargo);
+                ApplyToConfigs(cellLocation, matrix, binData.ShowCargo, binData.Visibility);
             });
 
             RequestConfigUpdate();
@@ -113,7 +130,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             _binDataStore.ApplyToColumn(columnIndex, (cellLocation, binData) =>
             {
                 Matrix4x4 matrix = Matrix4x4.TRS(binData.Pos, rotation, Vector3.one);
-                ApplyToConfigs(cellLocation, matrix, state);
+                ApplyToConfigs(cellLocation, matrix, state, binData.Visibility);
             });
 
             RequestConfigUpdate();
@@ -136,7 +153,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             binData.Pos = cellPos;
             binData.CachedMatrix = matrix;
             binData.HasCachedMatrix = true;
-            ApplyToConfigs(cellLocation, matrix, binData.ShowCargo);
+            ApplyToConfigs(cellLocation, matrix, binData.ShowCargo, binData.Visibility);
 
             if (autoUpdate) RequestConfigUpdate();
         }
@@ -159,9 +176,77 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             Matrix4x4 matrix = ResolveCargoStateMatrix(binData, show);
 
             binData.ShowCargo = show;
-            ApplyToConfigs(cellLocation, matrix, show);
+            ApplyToConfigs(cellLocation, matrix, show, binData.Visibility);
 
             if (autoUpdate) RequestConfigUpdate();
+        }
+
+        public void SetCargoVisibility(Int4 cellLocation, float visibility, bool autoUpdate = true)
+        {
+            if (!HasCargoConfigs() || !_binDataStore.TryGet(cellLocation, out RuntimeBinData binData))
+            {
+                return;
+            }
+
+            float clampedVisibility = Mathf.Clamp01(visibility);
+            if (Mathf.Approximately(binData.Visibility, clampedVisibility))
+            {
+                return;
+            }
+
+            binData.Visibility = clampedVisibility;
+            for (int i = 0; i < _cargoConfigs.Length; i++)
+            {
+                _cargoConfigs[i]?.SetVisibility(cellLocation, clampedVisibility, false);
+            }
+
+            if (autoUpdate)
+            {
+                RequestConfigUpdate(immediate: true);
+            }
+        }
+
+        public void SetCargoVisibility(Int4[] cellsLocation, float[] visibilities, bool autoUpdate = false)
+        {
+            ApplyBatchCargoState(
+                cellsLocation,
+                visibilities,
+                "[Warehouse] 批量显隐更新参数无效，已忽略。",
+                (location, value) => SetCargoVisibility(location, value, false),
+                autoUpdate);
+        }
+
+        /// <summary>
+        /// 全局控制所有货物 GPU 实例的显隐（材质 <c>_DitherVisibility</c>，当帧生效，无分块重建）。
+        /// 不影响各格位 <see cref="RuntimeBinData.Visibility"/> 存储值。
+        /// </summary>
+        /// <param name="visibility">0 全隐，1 全显，中间值为稀疏显示。</param>
+        public void SetGlobalCargoVisibility(float visibility, bool autoUpdate = true)
+        {
+            if (!HasCargoConfigs())
+            {
+                return;
+            }
+
+            float clampedVisibility = Mathf.Clamp01(visibility);
+            if (Mathf.Approximately(_globalCargoVisibility, clampedVisibility))
+            {
+                return;
+            }
+
+            _globalCargoVisibility = clampedVisibility;
+            for (int i = 0; i < _cargoConfigs.Length; i++)
+            {
+                _cargoConfigs[i]?.SetGlobalVisibility(clampedVisibility, false);
+            }
+        }
+
+        /// <summary>
+        /// 全局显示或隐藏所有货物实例（等价于 <see cref="SetGlobalCargoVisibility(float,bool)"/> 的 0/1）。
+        /// </summary>
+        public void SetGlobalCargoVisibility(bool visible, bool autoUpdate = true)
+        {
+            SetGlobalCargoVisibility(visible ? 1f : 0f, autoUpdate);
         }
 
         public bool LocateHighlightBin(Int4 cellLocation)
@@ -226,11 +311,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             if (autoUpdate) RequestConfigUpdate();
         }
 
-        private void ApplyToConfigs(Int4 cellLocation, Matrix4x4 matrix, bool show)
+        private void ApplyToConfigs(Int4 cellLocation, Matrix4x4 matrix, bool show, float visibility)
         {
             for (int i = 0; i < _cargoConfigs.Length; i++)
             {
-                _cargoConfigs[i]?.SetNewState(cellLocation, matrix, show, false);
+                _cargoConfigs[i]?.SetNewState(cellLocation, matrix, show, visibility, false);
             }
         }
 

@@ -4,7 +4,6 @@ using MQTTnet.Protocol;
 using NaughtyAttributes;
 using NonsensicalKit.Core;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace NonsensicalKit.DigitalTwin.MQTT
 {

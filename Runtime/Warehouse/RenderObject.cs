@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -63,6 +64,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         protected static readonly int PerInstanceItemDataPropertyId = Shader.PropertyToID("_PerInstanceItemData");
 
         /// <summary>
+        /// 材质级全局显隐（<c>WarehouseInstance</c> 的 <c>_DitherVisibility</c>），变更时无需重建实例缓冲。
+        /// </summary>
+        private static readonly int DitherVisibilityPropertyId = Shader.PropertyToID("_DitherVisibility");
+
+        /// <summary>
         /// 按平台能力创建具体实现：支持 GPU 间接参数缓冲时用 <see cref="RenderObjectIndirect"/>，否则用 <see cref="RenderObjectMatrixBatch"/>（WebGL 常见）。
         /// </summary>
         public static RenderObject Create(Mesh mesh, Material material, Matrix4x4 offset)
@@ -106,23 +112,38 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         }
 
         /// <summary>
-        /// 每个实例上传到 GPU 的结构体（间接路径）或中间表示（矩阵路径）。
+        /// 每个实例上传到 GPU 的结构体（与 <c>SimpleInstancing.hlsl</c> 的 <c>InstanceItemData</c> 布局一致）。
         /// </summary>
+        [StructLayout(LayoutKind.Sequential)]
         protected readonly struct ItemInstanceData
         {
             public readonly Matrix4x4 Matrix;
+            /// <summary>显隐因子 [0,1]，Shader 侧用 Bayer Dither + clip 实现，非 Alpha 混合。</summary>
+            public readonly float Visibility;
+            public readonly float Pad0;
+            public readonly float Pad1;
+            public readonly float Pad2;
 
-            public ItemInstanceData(Matrix4x4 matrix)
+            public ItemInstanceData(Matrix4x4 matrix, float visibility = 1f)
             {
                 Matrix = matrix;
+                Visibility = visibility;
+                Pad0 = 0f;
+                Pad1 = 0f;
+                Pad2 = 0f;
+            }
+
+            public static ItemInstanceData Identity(float visibility = 1f)
+            {
+                return new ItemInstanceData(Matrix4x4.identity, visibility);
             }
 
             /// <summary>
-            /// 结构体字节大小（16 个 float）。
+            /// 结构体字节大小（矩阵 64 + alpha/padding 16）。
             /// </summary>
             public static int Size()
             {
-                return sizeof(float) * 4 * 4;
+                return sizeof(float) * 20;
             }
         }
 
@@ -159,7 +180,12 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         /// <summary>
         /// 统一更新入口：调用方只传实例数据，不需要关心 Step1/Step2 细节。
         /// </summary>
-        public async UniTask UpdateItems(Matrix4x4[] itemTrans, bool[] itemState)
+        public UniTask UpdateItems(Matrix4x4[] itemTrans, bool[] itemState)
+        {
+            return UpdateItems(itemTrans, itemState, null);
+        }
+
+        public async UniTask UpdateItems(Matrix4x4[] itemTrans, bool[] itemState, float[] itemVisibilities)
         {
             if (_released)
             {
@@ -174,11 +200,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             if (useThreadPoolForBuild)
             {
                 await UniTask.SwitchToThreadPool();
-                nextItems = BuildItems(itemTrans, itemState);
+                nextItems = BuildItems(itemTrans, itemState, itemVisibilities);
             }
             else
             {
-                nextItems = BuildItems(itemTrans, itemState);
+                nextItems = BuildItems(itemTrans, itemState, itemVisibilities);
             }
 
             await UniTask.SwitchToMainThread();
@@ -208,6 +234,85 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
                 // 下一帧切换到另一套缓冲渲染。
                 RenderFromA = !RenderFromA;
+            }
+        }
+
+        /// <summary>
+        /// 设置材质级全局显隐乘数（立即生效，不走 <see cref="UpdateItems"/>）。
+        /// </summary>
+        public void SetDitherVisibility(float visibility)
+        {
+            float v = Mathf.Clamp01(visibility);
+            RenderParamsA.matProps.SetFloat(DitherVisibilityPropertyId, v);
+            RenderParamsB.matProps.SetFloat(DitherVisibilityPropertyId, v);
+        }
+
+        /// <summary>
+        /// 仅更新已上传实例的显隐因子并写回 GPU（矩阵与 show 集合未变时走快速路径）。
+        /// </summary>
+        /// <returns>是否成功走快速路径；false 时调用方应回退到 <see cref="UpdateItems"/>。</returns>
+        public bool TryPatchVisibilitiesOnly(Matrix4x4[] itemTrans, bool[] itemState, float[] itemVisibilities)
+        {
+            if (_released || itemTrans == null || itemState == null)
+            {
+                return false;
+            }
+
+            int count = Mathf.Min(itemTrans.Length, itemState.Length);
+            if (count == 0)
+            {
+                return Items != null && Items.Count == 0;
+            }
+
+            int visibleCount = 0;
+            for (int i = 0; i < count; i++)
+            {
+                if (itemState[i])
+                {
+                    visibleCount++;
+                }
+            }
+
+            if (Items == null || Items.Count != visibleCount)
+            {
+                return false;
+            }
+
+            lock (_releaseLock)
+            {
+                if (_released)
+                {
+                    return false;
+                }
+
+                int itemIndex = 0;
+                for (int i = 0; i < count; i++)
+                {
+                    if (!itemState[i])
+                    {
+                        continue;
+                    }
+
+                    ItemInstanceData current = Items[itemIndex];
+                    float visibility = ResolveItemVisibility(itemVisibilities, i);
+                    Items[itemIndex] = new ItemInstanceData(current.Matrix, visibility);
+                    itemIndex++;
+                }
+
+                if (!CanUploadRenderData())
+                {
+                    return true;
+                }
+
+                if (Items.Count == 0)
+                {
+                    DisableCurrentWriteTargetRenderFlag();
+                    return true;
+                }
+
+                UploadToWriteTarget();
+                RenderFromA = !RenderFromA;
+                return true;
             }
         }
 
@@ -274,7 +379,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             };
         }
 
-        private List<ItemInstanceData> BuildItems(Matrix4x4[] itemTrans, bool[] itemState)
+        private List<ItemInstanceData> BuildItems(Matrix4x4[] itemTrans, bool[] itemState, float[] itemVisibilities)
         {
             int capacity = 0;
             if (itemTrans != null && itemState != null)
@@ -310,10 +415,26 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                     continue;
                 }
 
-                result.Add(new ItemInstanceData(itemTrans[i] * _offset));
+                float visibility = ResolveItemVisibility(itemVisibilities, i);
+                result.Add(new ItemInstanceData(itemTrans[i] * _offset, visibility));
             }
 
             return result;
+        }
+
+        private static float ResolveItemVisibility(float[] itemVisibilities, int index)
+        {
+            if (itemVisibilities == null || itemVisibilities.Length == 0)
+            {
+                return 1f;
+            }
+
+            if (index < 0 || index >= itemVisibilities.Length)
+            {
+                return 1f;
+            }
+
+            return Mathf.Clamp01(itemVisibilities[index]);
         }
 
         private void SwapItems(List<ItemInstanceData> nextItems)
@@ -474,8 +595,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
     /// <summary>
     /// 无 GPU 间接参数缓冲时的路径：矩阵分批 <see cref="Graphics.DrawMeshInstanced"/>（典型于 WebGL）。
-    /// 仍绑定只含单位矩阵的 <see cref="ComputeBuffer"/>，以满足着色器中 <c>_PerInstanceItemData</c> 的读取
-    /// （顶点变换已由 <c>DrawMeshInstanced</c> 的矩阵数组提供，与 <c>mul(M, I)</c> 一致）。
+    /// 变换由 <c>DrawMeshInstanced</c> 矩阵数组提供；<c>_PerInstanceItemData</c> 中矩阵为单位矩阵，仅承载每实例显隐因子（Dither）。
     /// </summary>
     public sealed class RenderObjectMatrixBatch : RenderObject
     {
@@ -486,48 +606,37 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         private Matrix4x4[][] _matrixBatchesA;
         private Matrix4x4[][] _matrixBatchesB;
-
-        /// <summary>
-        /// 每实例为单位矩阵，供 Shader 中 <c>StructuredBuffer</c> 绑定；避免 WebGL 上未绑定缓冲导致未定义读取。
-        /// </summary>
-        private ComputeBuffer _perInstanceIdentityBuffer;
+        private ItemInstanceData[][] _instanceBatchesA;
+        private ItemInstanceData[][] _instanceBatchesB;
+        private ComputeBuffer _instancesBuffer;
 
         public RenderObjectMatrixBatch(Mesh mesh, Material material, Matrix4x4 offset)
             : base(mesh, material, offset)
         {
-            var stub = new ItemInstanceData[MaxInstancedBatch];
-            var identity = new ItemInstanceData(Matrix4x4.identity);
-            for (int i = 0; i < MaxInstancedBatch; i++)
-            {
-                stub[i] = identity;
-            }
-
-            _perInstanceIdentityBuffer = new ComputeBuffer(MaxInstancedBatch, ItemInstanceData.Size());
-            _perInstanceIdentityBuffer.SetData(stub);
         }
 
         protected override void ReleaseBackendResources()
         {
-            _perInstanceIdentityBuffer?.Release();
-            _perInstanceIdentityBuffer = null;
+            _instancesBuffer?.Release();
+            _instancesBuffer = null;
         }
 
         protected override bool ValidateBackendForUpload()
         {
             // WebGL2 上 maxComputeBufferInputsVertex 常为 0，但 DrawMeshInstanced + 顶点 StructuredBuffer 仍可用；勿用该字段拦截上传。
-            return SystemInfo.supportsInstancing && _perInstanceIdentityBuffer != null;
+            return SystemInfo.supportsInstancing;
         }
 
         protected override void UploadToWriteTarget()
         {
             if (RenderFromA)
             {
-                RebuildMatrixBatches(Items, ref _matrixBatchesB);
+                RebuildDrawBatches(Items, ref _matrixBatchesB, ref _instanceBatchesB);
                 CanRenderB = true;
                 return;
             }
 
-            RebuildMatrixBatches(Items, ref _matrixBatchesA);
+            RebuildDrawBatches(Items, ref _matrixBatchesA, ref _instanceBatchesA);
             CanRenderA = true;
         }
 
@@ -537,7 +646,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             {
                 if (CanRenderA)
                 {
-                    DrawMatrixInstancedBatches(in RenderParamsA, _matrixBatchesA);
+                    DrawMatrixInstancedBatches(in RenderParamsA, _matrixBatchesA, _instanceBatchesA);
                 }
 
                 return;
@@ -545,14 +654,17 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
             if (CanRenderB)
             {
-                DrawMatrixInstancedBatches(in RenderParamsB, _matrixBatchesB);
+                DrawMatrixInstancedBatches(in RenderParamsB, _matrixBatchesB, _instanceBatchesB);
             }
         }
 
-        private void DrawMatrixInstancedBatches(in RenderParams rp, Matrix4x4[][] matrixBatches)
+        private void DrawMatrixInstancedBatches(
+            in RenderParams rp,
+            Matrix4x4[][] matrixBatches,
+            ItemInstanceData[][] instanceBatches)
         {
-            if (Mesh == null || rp.material == null || matrixBatches == null || matrixBatches.Length == 0 ||
-                _perInstanceIdentityBuffer == null)
+            if (Mesh == null || rp.material == null || matrixBatches == null || instanceBatches == null ||
+                matrixBatches.Length == 0)
             {
                 return;
             }
@@ -560,12 +672,16 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             for (int i = 0; i < matrixBatches.Length; i++)
             {
                 Matrix4x4[] matrixBatch = matrixBatches[i];
-                if (matrixBatch == null || matrixBatch.Length == 0)
+                ItemInstanceData[] instanceBatch = i < instanceBatches.Length ? instanceBatches[i] : null;
+                if (matrixBatch == null || matrixBatch.Length == 0 || instanceBatch == null ||
+                    instanceBatch.Length != matrixBatch.Length)
                 {
                     continue;
                 }
 
-                rp.matProps.SetBuffer(PerInstanceItemDataPropertyId, _perInstanceIdentityBuffer);
+                EnsureInstancesBufferCapacity(instanceBatch.Length);
+                _instancesBuffer.SetData(instanceBatch);
+                rp.matProps.SetBuffer(PerInstanceItemDataPropertyId, _instancesBuffer);
 
                 Graphics.DrawMeshInstanced(
                     Mesh,
@@ -583,33 +699,60 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             }
         }
 
-        private static void RebuildMatrixBatches(IReadOnlyList<ItemInstanceData> items, ref Matrix4x4[][] batches)
+        private void EnsureInstancesBufferCapacity(int requiredCount)
+        {
+            if (_instancesBuffer != null && _instancesBuffer.count >= requiredCount)
+            {
+                return;
+            }
+
+            _instancesBuffer?.Release();
+            _instancesBuffer = new ComputeBuffer(requiredCount, ItemInstanceData.Size());
+        }
+
+        private static void RebuildDrawBatches(
+            IReadOnlyList<ItemInstanceData> items,
+            ref Matrix4x4[][] matrixBatches,
+            ref ItemInstanceData[][] instanceBatches)
         {
             int totalCount = items.Count;
             if (totalCount <= 0)
             {
-                batches = Array.Empty<Matrix4x4[]>();
+                matrixBatches = Array.Empty<Matrix4x4[]>();
+                instanceBatches = Array.Empty<ItemInstanceData[]>();
                 return;
             }
 
             int batchCount = (totalCount - 1) / MaxInstancedBatch + 1;
-            if (batches == null || batches.Length != batchCount)
+            if (matrixBatches == null || matrixBatches.Length != batchCount)
             {
-                batches = new Matrix4x4[batchCount][];
+                matrixBatches = new Matrix4x4[batchCount][];
+            }
+
+            if (instanceBatches == null || instanceBatches.Length != batchCount)
+            {
+                instanceBatches = new ItemInstanceData[batchCount][];
             }
 
             for (int batchIndex = 0; batchIndex < batchCount; batchIndex++)
             {
                 int chunkStart = batchIndex * MaxInstancedBatch;
                 int chunkLength = Mathf.Min(MaxInstancedBatch, totalCount - chunkStart);
-                if (batches[batchIndex] == null || batches[batchIndex].Length != chunkLength)
+                if (matrixBatches[batchIndex] == null || matrixBatches[batchIndex].Length != chunkLength)
                 {
-                    batches[batchIndex] = new Matrix4x4[chunkLength];
+                    matrixBatches[batchIndex] = new Matrix4x4[chunkLength];
+                }
+
+                if (instanceBatches[batchIndex] == null || instanceBatches[batchIndex].Length != chunkLength)
+                {
+                    instanceBatches[batchIndex] = new ItemInstanceData[chunkLength];
                 }
 
                 for (int i = 0; i < chunkLength; i++)
                 {
-                    batches[batchIndex][i] = items[chunkStart + i].Matrix;
+                    ItemInstanceData item = items[chunkStart + i];
+                    matrixBatches[batchIndex][i] = item.Matrix;
+                    instanceBatches[batchIndex][i] = ItemInstanceData.Identity(item.Visibility);
                 }
             }
         }

@@ -24,21 +24,40 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         private List<RenderChunk> _chunks;
         private Array4<Matrix4x4> _loadTrans;
         private Array4<bool> _loadStates;
+        private Array4<float> _loadVisibilities;
         private Array4<bool> _hasBins;
         private Array4<int> _chunkIndices;
         private Matrix4x4 _ltw;
         private bool _chunkBoundsDirty = true;
         private readonly Plane[] _frustumPlanesCache = new Plane[6];
         private readonly HashSet<int> _dirtyChunkIndices = new HashSet<int>();
+        private readonly HashSet<int> _visibilityOnlyDirtyChunkIndices = new HashSet<int>();
         private bool _forceFullChunkRefresh = true;
         private readonly List<int> _chunkIndexWorkCache = new List<int>();
         private readonly List<RenderChunk> _chunkWorkCache = new List<RenderChunk>();
+        private readonly HashSet<int> _visibilityOnlyWorkCache = new HashSet<int>();
 
         private readonly object _updateLock = new object();
         private int _updateQueued;
         private int _updateLoopRunning;
         private UniTask[] _updateTasksCache = Array.Empty<UniTask>();
         private bool _released;
+        private float _globalVisibility = 1f;
+
+        /// <summary>
+        /// 全局显隐乘数 [0,1]，经材质 <c>_DitherVisibility</c> 作用于所有实例（Dither），与格位显隐相乘。
+        /// </summary>
+        public float GlobalVisibility
+        {
+            get
+            {
+                lock (_updateLock)
+                {
+                    return _globalVisibility;
+                }
+            }
+        }
+
         public int LastUpdatedChunkCount { get; private set; }
         public int LastUpdateTaskCount { get; private set; }
         public int ChunkCount => _chunks?.Count ?? 0;
@@ -48,6 +67,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             _cellCount = cellCount;
             _loadTrans = new Array4<Matrix4x4>(cellCount.X, cellCount.Y, cellCount.Z, cellCount.W);
             _loadStates = new Array4<bool>(cellCount.X, cellCount.Y, cellCount.Z, cellCount.W);
+            _loadVisibilities = new Array4<float>(cellCount.X, cellCount.Y, cellCount.Z, cellCount.W);
             _hasBins = new Array4<bool>(cellCount.X, cellCount.Y, cellCount.Z, cellCount.W);
 
             _prefab = prefab;
@@ -166,6 +186,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         /// </summary>
         public void SetNewState(Int4 location, Matrix4x4 trans, bool show, bool autoUpdate)
         {
+            SetNewState(location, trans, show, ResolveVisibilityForUpdate(location), autoUpdate);
+        }
+
+        public void SetNewState(Int4 location, Matrix4x4 trans, bool show, float visibility, bool autoUpdate)
+        {
             if (_released)
             {
                 return;
@@ -176,7 +201,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 return;
             }
 
-            SetNewStateCore(location, trans, show);
+            SetNewStateCore(location, trans, show, visibility);
 
             if (autoUpdate)
             {
@@ -191,6 +216,13 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         /// </summary>
         public void SetNewState(int layer, int column, int row, int depth, Matrix4x4 trans, bool show, bool autoUpdate)
         {
+            SetNewState(layer, column, row, depth, trans, show,
+                ResolveVisibilityForUpdate(layer, column, row, depth), autoUpdate);
+        }
+
+        public void SetNewState(int layer, int column, int row, int depth, Matrix4x4 trans, bool show, float visibility,
+            bool autoUpdate)
+        {
             if (_released)
             {
                 return;
@@ -201,12 +233,63 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 return;
             }
 
-            SetNewStateCore(layer, column, row, depth, trans, show);
+            SetNewStateCore(layer, column, row, depth, trans, show, visibility);
 
             if (autoUpdate)
             {
                 UpdateParts().Forget();
             }
+        }
+
+        /// <summary>
+        /// 仅更新格位显隐因子（Dither），不改变显示状态与变换。
+        /// </summary>
+        public void SetVisibility(Int4 location, float visibility, bool autoUpdate)
+        {
+            if (_released || !HasPartTemplates())
+            {
+                return;
+            }
+
+            lock (_updateLock)
+            {
+                _loadVisibilities[location] = Mathf.Clamp01(visibility);
+                MarkVisibilityOnlyDirtyChunkByLocation(location);
+            }
+
+            if (autoUpdate)
+            {
+                UpdateParts().Forget();
+            }
+        }
+
+        public void SetVisibility(int layer, int column, int row, int depth, float visibility, bool autoUpdate)
+        {
+            SetVisibility(new Int4(layer, column, row, depth), visibility, autoUpdate);
+        }
+
+        /// <summary>
+        /// 设置全局显隐乘数。仅更新材质参数，不重建分块与 GPU 实例缓冲。
+        /// </summary>
+        public void SetGlobalVisibility(float visibility, bool autoUpdate)
+        {
+            if (_released || !HasPartTemplates())
+            {
+                return;
+            }
+
+            float clamped = Mathf.Clamp01(visibility);
+            lock (_updateLock)
+            {
+                if (Mathf.Approximately(_globalVisibility, clamped))
+                {
+                    return;
+                }
+
+                _globalVisibility = clamped;
+            }
+
+            ApplyGlobalMaterialVisibility(clamped);
         }
 
         /// <summary>
@@ -282,33 +365,55 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                         continue;
                     }
 
-                    if (!WarehousePlatformCompat.CpuInstancingBuildMustUseMainThread)
+                    bool visibilityOnlyWork = IsVisibilityOnlyWork();
+                    if (!visibilityOnlyWork && !WarehousePlatformCompat.CpuInstancingBuildMustUseMainThread)
                     {
                         await UniTask.SwitchToThreadPool();
                     }
 
                     BuildChunkRenderInput(_chunkWorkCache);
-                    await UniTask.SwitchToMainThread();
+                    if (!visibilityOnlyWork)
+                    {
+                        await UniTask.SwitchToMainThread();
+                    }
+
                     if (_released)
                     {
                         break;
                     }
 
-                    int taskCount = GetUpdateTaskCount(_chunkWorkCache.Count);
-                    LastUpdatedChunkCount = _chunkWorkCache.Count;
-                    LastUpdateTaskCount = taskCount;
-                    EnsureTaskCacheCapacity(taskCount);
+                    int taskCount = 0;
                     int taskIndex = 0;
-                    foreach (var chunk in _chunkWorkCache)
+                    int maxTaskCount = GetUpdateTaskCount(_chunkWorkCache.Count);
+                    EnsureTaskCacheCapacity(maxTaskCount);
+                    for (int chunkIndex = 0; chunkIndex < _chunkWorkCache.Count; chunkIndex++)
                     {
+                        RenderChunk chunk = _chunkWorkCache[chunkIndex];
+                        int chunkId = _chunkIndexWorkCache[chunkIndex];
+                        bool visibilityOnly = _visibilityOnlyWorkCache.Contains(chunkId);
                         foreach (var part in chunk.Parts)
                         {
-                            _updateTasksCache[taskIndex++] = part.UpdateItems(chunk.Transforms, chunk.States);
+                            if (visibilityOnly &&
+                                part.TryPatchVisibilitiesOnly(chunk.Transforms, chunk.States, chunk.Visibilities))
+                            {
+                                continue;
+                            }
+
+                            _updateTasksCache[taskIndex++] =
+                                part.UpdateItems(chunk.Transforms, chunk.States, chunk.Visibilities);
+                            taskCount++;
                         }
                     }
 
-                    if (taskIndex > 0)
+                    LastUpdatedChunkCount = _chunkWorkCache.Count;
+                    LastUpdateTaskCount = taskCount;
+                    if (taskCount > 0)
                     {
+                        if (taskCount != _updateTasksCache.Length)
+                        {
+                            EnsureTaskCacheCapacity(taskCount);
+                        }
+
                         await UniTask.WhenAll(_updateTasksCache);
                     }
                 }
@@ -402,6 +507,9 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                                         chunk.Transforms[index] = IdentityMatrix;
                                     }
                                     chunk.States[index] = hasBin && _loadStates[layer, column, row, depth];
+                                    chunk.Visibilities[index] = hasBin
+                                        ? Mathf.Clamp01(_loadVisibilities[layer, column, row, depth])
+                                        : 0f;
                                     index++;
                                 }
                             }
@@ -453,10 +561,14 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             }
 
             _chunkBoundsDirty = true;
+            float initGlobalVisibility;
             lock (_updateLock)
             {
                 _forceFullChunkRefresh = true;
+                initGlobalVisibility = _globalVisibility;
             }
+
+            ApplyGlobalMaterialVisibility(initGlobalVisibility);
         }
 
         private RenderChunk CreateChunk(
@@ -480,10 +592,19 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                            (depthEnd - depthStart);
             var transforms = new Matrix4x4[capacity];
             var states = new bool[capacity];
+            var visibilities = new float[capacity];
             var parts = new List<RenderObject>(_partTemplates.Count);
+            float globalVisibility;
+            lock (_updateLock)
+            {
+                globalVisibility = _globalVisibility;
+            }
+
             foreach (var template in _partTemplates)
             {
-                parts.Add(RenderObject.Create(template.Mesh, template.Material, template.Offset));
+                RenderObject part = RenderObject.Create(template.Mesh, template.Material, template.Offset);
+                part.SetDitherVisibility(globalVisibility);
+                parts.Add(part);
             }
 
             return new RenderChunk(
@@ -497,6 +618,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 depthEnd,
                 transforms,
                 states,
+                visibilities,
                 parts,
                 localBounds,
                 hasValidCell);
@@ -664,23 +786,52 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             return _chunks != null && _chunks.Count > 0;
         }
 
-        private void SetNewStateCore(Int4 location, Matrix4x4 trans, bool show)
+        private float ResolveVisibilityForUpdate(Int4 location)
+        {
+            lock (_updateLock)
+            {
+                if (!_hasBins[location])
+                {
+                    return 1f;
+                }
+
+                return Mathf.Clamp01(_loadVisibilities[location]);
+            }
+        }
+
+        private float ResolveVisibilityForUpdate(int layer, int column, int row, int depth)
+        {
+            lock (_updateLock)
+            {
+                if (!_hasBins[layer, column, row, depth])
+                {
+                    return 1f;
+                }
+
+                return Mathf.Clamp01(_loadVisibilities[layer, column, row, depth]);
+            }
+        }
+
+        private void SetNewStateCore(Int4 location, Matrix4x4 trans, bool show, float visibility)
         {
             lock (_updateLock)
             {
                 _loadTrans[location] = trans;
                 _loadStates[location] = show;
+                _loadVisibilities[location] = Mathf.Clamp01(visibility);
                 _hasBins[location] = true;
                 MarkDirtyChunkByLocation(location);
             }
         }
 
-        private void SetNewStateCore(int layer, int column, int row, int depth, Matrix4x4 trans, bool show)
+        private void SetNewStateCore(int layer, int column, int row, int depth, Matrix4x4 trans, bool show,
+            float visibility)
         {
             lock (_updateLock)
             {
                 _loadTrans[layer, column, row, depth] = trans;
                 _loadStates[layer, column, row, depth] = show;
+                _loadVisibilities[layer, column, row, depth] = Mathf.Clamp01(visibility);
                 _hasBins[layer, column, row, depth] = true;
                 MarkDirtyChunkByLocation(layer, column, row, depth);
             }
@@ -719,6 +870,14 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
                 _dirtyChunkIndices.Clear();
                 _forceFullChunkRefresh = false;
+
+                _visibilityOnlyWorkCache.Clear();
+                foreach (int chunkIndex in _visibilityOnlyDirtyChunkIndices)
+                {
+                    _visibilityOnlyWorkCache.Add(chunkIndex);
+                }
+
+                _visibilityOnlyDirtyChunkIndices.Clear();
             }
 
             for (int i = 0; i < _chunkIndexWorkCache.Count; i++)
@@ -747,6 +906,63 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             if (chunkIndex >= 0)
             {
                 _dirtyChunkIndices.Add(chunkIndex);
+                _visibilityOnlyDirtyChunkIndices.Remove(chunkIndex);
+            }
+        }
+
+        private void MarkVisibilityOnlyDirtyChunkByLocation(Int4 location)
+        {
+            MarkVisibilityOnlyDirtyChunkByLocation(location.X, location.Y, location.Z, location.W);
+        }
+
+        private void MarkVisibilityOnlyDirtyChunkByLocation(int layer, int column, int row, int depth)
+        {
+            if (_chunkIndices == null)
+            {
+                _forceFullChunkRefresh = true;
+                return;
+            }
+
+            int chunkIndex = _chunkIndices[layer, column, row, depth];
+            if (chunkIndex >= 0)
+            {
+                _dirtyChunkIndices.Add(chunkIndex);
+                _visibilityOnlyDirtyChunkIndices.Add(chunkIndex);
+            }
+        }
+
+        private bool IsVisibilityOnlyWork()
+        {
+            if (_chunkWorkCache.Count == 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < _chunkIndexWorkCache.Count; i++)
+            {
+                if (!_visibilityOnlyWorkCache.Contains(_chunkIndexWorkCache[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private void ApplyGlobalMaterialVisibility(float visibility)
+        {
+            if (!HasChunks())
+            {
+                return;
+            }
+
+            float v = Mathf.Clamp01(visibility);
+            foreach (var chunk in _chunks)
+            {
+                foreach (var part in chunk.Parts)
+                {
+                    part.SetDitherVisibility(v);
+                }
             }
         }
 
@@ -816,6 +1032,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             public readonly int DepthEnd;
             public readonly Matrix4x4[] Transforms;
             public readonly bool[] States;
+            public readonly float[] Visibilities;
             public readonly List<RenderObject> Parts;
             public readonly Bounds LocalBounds;
             public readonly bool HasValidCell;
@@ -832,6 +1049,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 int depthEnd,
                 Matrix4x4[] transforms,
                 bool[] states,
+                float[] visibilities,
                 List<RenderObject> parts,
                 Bounds localBounds,
                 bool hasValidCell)
@@ -846,6 +1064,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 DepthEnd = depthEnd;
                 Transforms = transforms;
                 States = states;
+                Visibilities = visibilities;
                 Parts = parts;
                 LocalBounds = localBounds;
                 HasValidCell = hasValidCell;

@@ -12,6 +12,15 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         public static Int4 GetAutoChunkSize(Int4 dimensions, WarehouseChunkLevel level)
         {
+            if (level == WarehouseChunkLevel.None)
+            {
+                return new Int4(
+                    Mathf.Max(1, dimensions.X),
+                    Mathf.Max(1, dimensions.Y),
+                    Mathf.Max(1, dimensions.Z),
+                    Mathf.Max(1, dimensions.W));
+            }
+
             int targetChunkCount = GetTargetChunkCount(level);
             return BuildChunkSizeByTarget(dimensions, targetChunkCount);
         }

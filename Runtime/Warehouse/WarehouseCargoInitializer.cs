@@ -80,7 +80,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                     bool show = TryBuildMatrix(binData, warehouseRotation, out Matrix4x4 matrix);
                     for (int i = 0; i < cargoConfigs.Length; i++)
                     {
-                        cargoConfigs[i].SetNewState(layer, column, row, depth, matrix, show, false);
+                        cargoConfigs[i].SetNewState(layer, column, row, depth, matrix, show, binData.Visibility, false);
                     }
                 });
             }

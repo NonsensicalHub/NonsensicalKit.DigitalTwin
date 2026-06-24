@@ -7,6 +7,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
     {
         Low = 0,
         Medium = 1,
-        High = 2
+        High = 2,
+        /// <summary>不分块，整仓作为单个渲染块。</summary>
+        None = 3
     }
 }

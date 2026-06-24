@@ -1,4 +1,4 @@
-#if !UNITY_EDITOR&&UNITY_WEBGL&&NonsensicalkitWebgl
+#if !UNITY_EDITOR&&UNITY_WEBGL
 using MQTTnet.Protocol;
 using NonsensicalKit.Core;
 using NonsensicalKit.WebGL;

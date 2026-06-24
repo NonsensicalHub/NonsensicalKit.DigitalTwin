@@ -18,6 +18,12 @@ namespace NonsensicalKit.DigitalTwin.Render
         [SerializeField] private List<RenderSetting> m_settings;
         [SerializeField] private ReflectionProbe m_probe;
         [SerializeField] private bool m_refreshTrans;
+        [SerializeField, Range(0f, 1f)] private float m_globalDitherVisibility = 1f;
+
+        /// <summary>
+        /// 当前全局 Dither 显隐乘数 [0,1]（作用于所有 <see cref="RenderSetting"/> 中带 <c>_DitherVisibility</c> 的材质）。
+        /// </summary>
+        public float GlobalDitherVisibility => m_globalDitherVisibility;
 
         public bool RefreshTrans
         {
@@ -70,6 +76,46 @@ namespace NonsensicalKit.DigitalTwin.Render
                 }
 
                 setting.Init(m_probe);
+            }
+
+            ApplyGlobalDitherVisibilityToSettings();
+        }
+
+        /// <summary>
+        /// 全局设置本 <see cref="MultiRender"/> 下所有实例的 Dither 显隐（写入各批次的 <see cref="MaterialPropertyBlock"/>，当帧生效，不重建矩阵）。
+        /// 仅当数值变化时才写入 GPU 属性，避免每帧开销。
+        /// </summary>
+        /// <param name="visibility">0 全隐，1 全显，中间值为 Bayer 渐隐。</param>
+        public void SetGlobalDitherVisibility(float visibility)
+        {
+            float clamped = Mathf.Clamp01(visibility);
+            if (Mathf.Approximately(m_globalDitherVisibility, clamped))
+            {
+                return;
+            }
+
+            m_globalDitherVisibility = clamped;
+            ApplyGlobalDitherVisibilityToSettings();
+        }
+
+        /// <summary>
+        /// 全局显示或隐藏（等价于 <see cref="SetGlobalDitherVisibility(float)"/> 的 0/1）。
+        /// </summary>
+        public void SetGlobalDitherVisibility(bool visible)
+        {
+            SetGlobalDitherVisibility(visible ? 1f : 0f);
+        }
+
+        private void ApplyGlobalDitherVisibilityToSettings()
+        {
+            if (m_settings == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < m_settings.Count; i++)
+            {
+                m_settings[i]?.SetDitherVisibility(m_globalDitherVisibility);
             }
         }
 
@@ -219,15 +265,40 @@ namespace NonsensicalKit.DigitalTwin.Render
     [Serializable]
     public class RenderSetting
     {
+        private static readonly int DitherVisibilityPropertyId = Shader.PropertyToID("_DitherVisibility");
+
         public GameObject m_Prefab;
         public List<Transform> m_LoadTrans = new List<Transform>();
         private List<PartInfo> _parts;
         private readonly List<Matrix4x4> _transCache = new List<Matrix4x4>();
+        private MaterialPropertyBlock _matPropertyBlock;
+        private bool _hasDitherVisibilityProperty;
+        private float _appliedDitherVisibility = float.NaN;
 
         public void Init(ReflectionProbe mainReflectionProbe = null)
         {
             InitMeshes(m_Prefab, mainReflectionProbe);
             Update();
+        }
+
+        /// <summary>
+        /// 设置本批次材质的 <c>_DitherVisibility</c>（仅支持 LitDither 等含该属性的 Shader）。
+        /// </summary>
+        public void SetDitherVisibility(float visibility)
+        {
+            if (!_hasDitherVisibilityProperty || _matPropertyBlock == null)
+            {
+                return;
+            }
+
+            float clamped = Mathf.Clamp01(visibility);
+            if (!float.IsNaN(_appliedDitherVisibility) && Mathf.Approximately(_appliedDitherVisibility, clamped))
+            {
+                return;
+            }
+
+            _appliedDitherVisibility = clamped;
+            _matPropertyBlock.SetFloat(DitherVisibilityPropertyId, clamped);
         }
 
         public void RenderMesh()
@@ -269,14 +340,16 @@ namespace NonsensicalKit.DigitalTwin.Render
         {
             _parts = new List<PartInfo>();
             var meshs = prefab.GetComponentsInChildren<MeshFilter>();
-            MaterialPropertyBlock block = new MaterialPropertyBlock();
+            _hasDitherVisibilityProperty = false;
+            _appliedDitherVisibility = float.NaN;
+            _matPropertyBlock = new MaterialPropertyBlock();
             if (mainReflectionProbe != null)
             {
-                block.SetTexture("unity_SpecCube0", mainReflectionProbe.texture);
-                block.SetTexture("unity_SpecCube1", mainReflectionProbe.texture);
+                _matPropertyBlock.SetTexture("unity_SpecCube0", mainReflectionProbe.texture);
+                _matPropertyBlock.SetTexture("unity_SpecCube1", mainReflectionProbe.texture);
                 var textureHDRDecodeValues = mainReflectionProbe.textureHDRDecodeValues;
-                block.SetVector("unity_SpecCube0_HDR", textureHDRDecodeValues);
-                block.SetVector("unity_SpecCube1_HDR", textureHDRDecodeValues);
+                _matPropertyBlock.SetVector("unity_SpecCube0_HDR", textureHDRDecodeValues);
+                _matPropertyBlock.SetVector("unity_SpecCube1_HDR", textureHDRDecodeValues);
             }
 
             foreach (var item in meshs)
@@ -289,12 +362,18 @@ namespace NonsensicalKit.DigitalTwin.Render
 
                 for (var i = 0; i < renderer.sharedMaterials.Length; i++)
                 {
-                    var renderParams = new RenderParams(renderer.sharedMaterials[i])
+                    Material material = renderer.sharedMaterials[i];
+                    if (material != null && material.HasProperty(DitherVisibilityPropertyId))
+                    {
+                        _hasDitherVisibilityProperty = true;
+                    }
+
+                    var renderParams = new RenderParams(material)
                     {
                         shadowCastingMode = ShadowCastingMode.On,
                         reflectionProbeUsage = ReflectionProbeUsage.BlendProbes,
                         lightProbeUsage = LightProbeUsage.Off,
-                        matProps = block,
+                        matProps = _matPropertyBlock,
                         layer = 8
                     };
 

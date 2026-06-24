@@ -3,7 +3,10 @@
     "rootNamespace": "",
     "references": [
         "NonsensicalKit.DigitalTwin",
-        "NonsensicalKit.Core"
+        "NonsensicalKit.Core",
+        "Unity.RenderPipelines.Universal.Editor",
+        "Unity.RenderPipelines.Core.Editor",
+        "Unity.RenderPipelines.Core.Runtime"
     ],
     "includePlatforms": [
         "Editor"
