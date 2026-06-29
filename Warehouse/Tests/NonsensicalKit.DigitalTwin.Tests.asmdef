@@ -2,9 +2,9 @@
     "name": "NonsensicalKit.DigitalTwin.Tests",
     "rootNamespace": "",
     "references": [
-        "UnityEngine.TestRunner",
-        "NonsensicalKit.DigitalTwin",
-        "NonsensicalKit.Core"
+        "NonsensicalKit.DigitalTwin.Warehouse",
+        "NonsensicalKit.Core.Runtime",
+        "UnityEngine.TestRunner"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

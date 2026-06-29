@@ -1,9 +1,12 @@
 {
-    "name": "NonsensicalKit.DigitalTwin.Editor",
+    "name": "NonsensicalKit.DigitalTwin.Render.Editor",
     "rootNamespace": "",
     "references": [
         "NonsensicalKit.Core.Runtime",
-        "NonsensicalKit.DigitalTwin.Motion"
+        "NonsensicalKit.DigitalTwin.Render",
+        "Unity.RenderPipelines.Core.Editor",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Editor"
     ],
     "includePlatforms": [
         "Editor"

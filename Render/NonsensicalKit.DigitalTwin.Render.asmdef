@@ -1,12 +1,11 @@
 {
-    "name": "NonsensicalKit.DigitalTwin",
+    "name": "NonsensicalKit.DigitalTwin.Render",
     "rootNamespace": "",
     "references": [
-        "NonsensicalKit.Core",
-        "NonsensicalKit.UGUI",
+        "NonsensicalKit.Core.Runtime",
+        "NonsensicalKit.NaughtyAttributes",
         "Unity.TextMeshPro",
         "Cinemachine",
-        "NonsensicalKit.WebGL",
         "UniTask",
         "Unity.Cinemachine"
     ],

@@ -1,6 +1,7 @@
 # NonsensicalKit.DigitalTwin
 
 `com.nonsensicallab.nonsensicalkit.digitaltwin` 是数字孪生能力包，提供数据接入、设备运动控制、机械联动、渲染映射与工业协议接入（MQTT/Socket.IO）等能力。
+需要和虚实同步功能时导入这个包
 
 ## 文档说明
 

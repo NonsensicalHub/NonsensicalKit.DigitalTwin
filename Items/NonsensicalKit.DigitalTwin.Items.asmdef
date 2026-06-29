@@ -1,0 +1,30 @@
+{
+    "name": "NonsensicalKit.DigitalTwin.Items",
+    "rootNamespace": "",
+    "references": [
+        "Cinemachine",
+        "Unity.Cinemachine",
+        "NonsensicalKit.Core.Runtime",
+        "NonsensicalKit.NaughtyAttributes"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.cinemachine",
+            "expression": "3.0",
+            "define": "Cinemachine3"
+        },
+        {
+            "name": "com.nonsensicallab.nonsensicalkit.webgl",
+            "expression": "0.0.1",
+            "define": "NonsensicalkitWebgl"
+        }
+    ],
+    "noEngineReferences": false
+}
