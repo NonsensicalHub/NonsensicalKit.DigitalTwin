@@ -9,7 +9,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
     /// 仓库 GPU Picking：离屏渲染 Pick ID 到 RT，再按屏幕像素读回颜色并解码货位。
     /// <para>
     /// <b>渲染管线：</b>当前仅支持 URP。Pick Pass 使用
-    /// <c>Render/WarehousePick.shader</c>（Tags: UniversalPipeline，HLSL + URP Core）。
+    /// <c>Warehouse/GpuPicking/WarehousePick.shader</c>（Tags: UniversalPipeline，HLSL + URP Core）。
     /// 内置管线 / HDRP 需替换对应 Pick Shader，并重新标定下方坐标翻转常量。
     /// </para>
     /// <para>
@@ -30,6 +30,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
     internal sealed class WarehouseGpuPicker
     {
         private const string PickShaderName = "NonsensicalKit/DigitalTwin/WarehousePick";
+        private const string PickMaterialResourcesPath = "WarehouseGpuPick";
 
         // --- 点击读回 RT 时的像素映射（影响 Pick 命中，与预览无关）---
         // URP + GetGPUProjectionMatrix(..., true) 下，mouse 像素与 RT 像素通常 1:1，保持 false。
@@ -265,28 +266,9 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         private bool EnsureResources(int width, int height)
         {
-            if (_pickMaterial == null)
+            if (_pickMaterial == null && !TryCreatePickMaterial())
             {
-                Shader shader = Shader.Find(PickShaderName);
-                if (shader == null)
-                {
-                    Debug.LogError($"[Warehouse] 找不到 GPU Picking Shader: {PickShaderName}");
-                    return false;
-                }
-
-                if (!shader.isSupported)
-                {
-                    Debug.LogError($"[Warehouse] GPU Picking Shader 当前平台不支持: {PickShaderName}");
-                    return false;
-                }
-
-                _pickMaterial = new Material(shader)
-                {
-                    name = "Warehouse GPU Pick Material",
-                    hideFlags = HideFlags.HideAndDontSave,
-                    enableInstancing = true
-                };
-                _pickMaterial.SetFloat(DitherVisibilityPropertyId, 1f);
+                return false;
             }
 
             if (_target != null && _target.width == width && _target.height == height)
@@ -309,6 +291,41 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 autoGenerateMips = false
             };
             _target.Create();
+            return true;
+        }
+
+        /// <summary>
+        /// 优先从 Resources 材质加载 Shader，避免 Player 构建时 <c>Shader.Find</c> / Instancing 变体被裁切。
+        /// </summary>
+        private bool TryCreatePickMaterial()
+        {
+            Material template = Resources.Load<Material>(PickMaterialResourcesPath);
+            Shader shader = template != null ? template.shader : null;
+            if (shader == null)
+            {
+                shader = Shader.Find(PickShaderName);
+            }
+
+            if (shader == null)
+            {
+                Debug.LogError(
+                    $"[Warehouse] 找不到 GPU Picking Shader: {PickShaderName}。" +
+                    $"请确认包内 Warehouse/GpuPicking/Resources/{PickMaterialResourcesPath}.mat 存在，" +
+                    "或将 Warehouse/GpuPicking/WarehousePick.shader 加入 Graphics Settings → Always Included Shaders。");
+                return false;
+            }
+
+            if (!shader.isSupported)
+            {
+                Debug.LogError($"[Warehouse] GPU Picking Shader 当前平台不支持: {PickShaderName}");
+                return false;
+            }
+
+            _pickMaterial = template != null ? new Material(template) : new Material(shader);
+            _pickMaterial.name = "Warehouse GPU Pick Material";
+            _pickMaterial.hideFlags = HideFlags.HideAndDontSave;
+            _pickMaterial.enableInstancing = true;
+            _pickMaterial.SetFloat(DitherVisibilityPropertyId, 1f);
             return true;
         }
 

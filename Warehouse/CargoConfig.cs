@@ -168,7 +168,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             {
                 foreach (var part in chunk.Parts)
                 {
-                    if (!part.CanPickRender)
+                    // Pick 使用 Items 矩阵，勿用 CanPickRender（双缓冲 GPU 上传标志，会导致 Player 中 RT 全黑）。
+                    if (!part.HasPickInstances)
                     {
                         continue;
                     }

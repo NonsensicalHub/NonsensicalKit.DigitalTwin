@@ -379,6 +379,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         internal bool CanPickRender => RenderFromA ? CanRenderA : CanRenderB;
 
         /// <summary>
+        /// Pick Pass 直接读取 <see cref="Items"/> 矩阵批绘制，不依赖间接绘制缓冲是否就绪。
+        /// </summary>
+        internal bool HasPickInstances => Items != null && Items.Count > 0;
+
+        /// <summary>
         /// 除网格外，子类是否已具备上传条件（如间接路径的命令缓冲已创建）。
         /// </summary>
         protected abstract bool ValidateBackendForUpload();
