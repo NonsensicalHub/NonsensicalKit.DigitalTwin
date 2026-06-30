@@ -1,6 +1,5 @@
 using System;
 using Cysharp.Threading.Tasks;
-using NaughtyAttributes;
 using NonsensicalKit.Core;
 using UnityEngine;
 using UnityEngine.Events;
@@ -22,9 +21,20 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         [SerializeField, Min(0f)] private float m_chunkCullDistance = 0f;
         [SerializeField, Range(1, 6)] private int m_updateIntervalFrames = 2;
         [SerializeField] private bool m_logWarehousePerf;
+        [SerializeField] private bool m_enableGpuPicking;
+        [SerializeField] private bool m_debugGpuPicking;
 
         public bool Inited => _inited;
 
+        /// <summary>最近一次 GPU Picking 的调试 RT 预览（需开启 <see cref="EnableGpuPicking"/> 和 <see cref="DebugGpuPicking"/>）。</summary>
+        public Texture2D LastGpuPickPreview => _gpuPicker?.LastPickPreview;
+
+        public bool FlipGpuPickPreviewX => _gpuPicker is { FlipPreviewX: true };
+        public bool FlipGpuPickPreviewY => _gpuPicker is { FlipPreviewY: true };
+
+        /// <summary>最近一次 GPU Picking 的调试信息。</summary>
+        public WarehouseGpuPickDebugInfo LastGpuPickDebugInfo => _gpuPicker?.LastDebugInfo ?? WarehouseGpuPickDebugInfo.Empty("gpu picking disabled");
+        
         /// <summary>
         /// 全仓库货物实例的全局显隐乘数 [0,1]（材质 <c>_DitherVisibility</c>，与各格位显隐相乘）。
         /// </summary>
@@ -37,8 +47,9 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         private readonly Plane[] _frameFrustumPlanes = new Plane[6];
         private readonly WarehouseBinDataStore _binDataStore = new WarehouseBinDataStore();
         private readonly WarehouseUpdateScheduler _updateScheduler = new WarehouseUpdateScheduler();
+        private WarehouseGpuPicker _gpuPicker;
         private WarehouseHighlightController _highlightController;
-        private bool _destroying; 
+        private bool _destroying;
 
         private float _nextPerfLogTime;
 
@@ -48,7 +59,6 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         {
             SetGlobalCargoVisibility(value);
         }
-
         
         private void OnValidate()
         {
@@ -59,8 +69,12 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         {
             ChangeGlobalCargoVisibility.AddListener(Change);
             _highlightController = new WarehouseHighlightController(m_highlightCargo, m_highlightIndicator);
-
-
+         
+            if (m_enableGpuPicking)
+            {
+                EnsureGpuPicker();
+            }
+            
             Init().Forget();
         }
 
@@ -99,6 +113,18 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
             TryExecuteScheduledConfigUpdate();
             LogPerfIfNeeded();
+
+            if (m_enableGpuPicking && m_debugGpuPicking && _gpuPicker != null && _inited)
+            {
+                Camera previewCamera = ResolveRenderCamera();
+                if (previewCamera != null)
+                {
+                    _gpuPicker.SetContinuousPreview(
+                        previewCamera,
+                        _cargoConfigs,
+                        _globalCargoVisibility);
+                }
+            }
         }
 
         protected override void OnDestroy()
@@ -106,9 +132,47 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             base.OnDestroy();
             _destroying = true;
             _updateScheduler.ClearPending();
+            ReleaseGpuPicker();
             if (!HasCargoConfigs()) return;
             foreach (var item in _cargoConfigs) item?.Release();
         }
+
+        #region Enable GPU Picking
+
+        public bool EnableGpuPicking
+        {
+            get => m_enableGpuPicking;
+            set
+            {
+                if (m_enableGpuPicking == value) return;
+                m_enableGpuPicking = value;
+                if (m_enableGpuPicking)
+                {
+                    EnsureGpuPicker();
+                }
+                else
+                {
+                    ReleaseGpuPicker();
+                }
+            }
+        }
+
+        public bool DebugGpuPicking
+        {
+            get => m_debugGpuPicking;
+            set
+            {
+                m_debugGpuPicking = value;
+                if (_gpuPicker != null)
+                {
+                    _gpuPicker.DebugEnabled = value;
+                }
+            }
+        }
+
+        #endregion
+
+        #region Cargo Status Setting
 
         public void SetColumnOffset(int columnIndex, Vector3 offset)
         {
@@ -249,6 +313,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             SetGlobalCargoVisibility(visible ? 1f : 0f, autoUpdate);
         }
 
+        #endregion
+
         public bool LocateHighlightBin(Int4 cellLocation)
         {
             if (!_highlightController.CanHighlight())
@@ -275,6 +341,96 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         {
             _highlightController.Hide();
         }
+
+        #region GPU Picking
+        
+        public async UniTask<bool> TryPickCargoAsync(
+            Vector2 screenPosition,
+            Action<Int4> onPicked = null,
+            bool locateHighlight = true)
+        {
+            return await TryPickCargoAsync(screenPosition, m_renderCamera ?? ResolveRenderCamera(), onPicked, locateHighlight);
+        }
+
+        /// <summary>
+        /// Gpu picking 点击货物,返回货架货物映射坐标
+        /// </summary>
+        /// <param name="screenPosition">屏幕坐标</param>
+        /// <param name="renderCamera">渲染相机</param>
+        /// <param name="onPicked">点击事件</param>
+        /// <param name="locateHighlight">是否触发高亮事件</param>
+        /// <returns></returns>
+        public async UniTask<bool> TryPickCargoAsync(
+            Vector2 screenPosition,
+            Camera renderCamera,
+            Action<Int4> onPicked = null,
+            bool locateHighlight = true)
+        {
+            if (_destroying || !_inited || !HasCargoConfigs() || !_binDataStore.IsReady||_gpuPicker==null)
+            {
+                return false;
+            }
+
+            if (!m_enableGpuPicking)
+            {
+                return false;
+            }
+
+            if (renderCamera == null)
+            {
+                Debug.LogWarning("[Warehouse] GPU Picking 失败：未找到可用 Camera。");
+                return false;
+            }
+
+            EnsureGpuPicker();
+            WarehousePickResult result = await _gpuPicker.PickAsync(
+                screenPosition,
+                renderCamera,
+                _cargoConfigs,
+                _binDataStore.Size,
+                _globalCargoVisibility,
+                _binDataStore);
+
+            if (!result.Hit)
+            {
+                return false;
+            }
+
+            if (locateHighlight)
+            {
+                LocateHighlightBin(result.Location);
+            }
+
+            onPicked?.Invoke(result.Location);
+            return true;
+        }
+
+        private void EnsureGpuPicker()
+        {
+            if (_gpuPicker != null)
+            {
+                _gpuPicker.DebugEnabled = m_debugGpuPicking;
+                return;
+            }
+
+            _gpuPicker = new WarehouseGpuPicker
+            {
+                DebugEnabled = m_debugGpuPicking
+            };
+        }
+
+        private void ReleaseGpuPicker()
+        {
+            if (_gpuPicker == null)
+            {
+                return;
+            }
+
+            _gpuPicker.Release();
+            _gpuPicker = null;
+        }
+
+        #endregion
 
         private bool CanProcessColumn(int columnIndex)
         {
@@ -346,7 +502,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
             Subscribe();
         }
-        
+
         private void Subscribe()
         {
             AddHandler<Int4, bool>("LocateHighlightBin", m_warehouseName, LocateHighlightBin);
