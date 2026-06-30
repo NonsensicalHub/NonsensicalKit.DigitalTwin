@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace NonsensicalKit.DigitalTwin.Warehouse
 {
@@ -15,6 +16,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
     public abstract class RenderObject
     {
         private const int ThreadPoolBuildThreshold = 512;
+        private const int PickBatchSize = 1023;
 
         /// <summary>
         /// 统一的超大包围盒，避免实例被错误裁剪。
@@ -33,6 +35,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         protected readonly Mesh Mesh;
 
         protected readonly uint IndexCountPerInstance;
+
+        internal Mesh RenderMesh => Mesh;
 
         /// <summary>
         /// 筛选后参与渲染的实例列表。
@@ -67,6 +71,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         /// 材质级全局显隐（<c>WarehouseInstance</c> 的 <c>_DitherVisibility</c>），变更时无需重建实例缓冲。
         /// </summary>
         private static readonly int DitherVisibilityPropertyId = Shader.PropertyToID("_DitherVisibility");
+        private static readonly int WarehousePickColorPropertyId = Shader.PropertyToID("_WarehousePickColor");
+
+        private readonly Matrix4x4[] _pickMatrices = new Matrix4x4[PickBatchSize];
+        private readonly Vector4[] _pickColors = new Vector4[PickBatchSize];
+        private readonly MaterialPropertyBlock _pickMaterialProperties = new MaterialPropertyBlock();
 
         /// <summary>
         /// 按平台能力创建具体实现：支持 GPU 间接参数缓冲时用 <see cref="RenderObjectIndirect"/>，否则用 <see cref="RenderObjectMatrixBatch"/>（WebGL 常见）。
@@ -120,22 +129,22 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             public readonly Matrix4x4 Matrix;
             /// <summary>显隐因子 [0,1]，Shader 侧用 Bayer Dither + clip 实现，非 Alpha 混合。</summary>
             public readonly float Visibility;
-            public readonly float Pad0;
+            public readonly uint PickId;
             public readonly float Pad1;
             public readonly float Pad2;
 
-            public ItemInstanceData(Matrix4x4 matrix, float visibility = 1f)
+            public ItemInstanceData(Matrix4x4 matrix, float visibility = 1f, uint pickId = WarehousePickId.Miss)
             {
                 Matrix = matrix;
                 Visibility = visibility;
-                Pad0 = 0f;
+                PickId = pickId;
                 Pad1 = 0f;
                 Pad2 = 0f;
             }
 
-            public static ItemInstanceData Identity(float visibility = 1f)
+            public static ItemInstanceData Identity(float visibility = 1f, uint pickId = WarehousePickId.Miss)
             {
-                return new ItemInstanceData(Matrix4x4.identity, visibility);
+                return new ItemInstanceData(Matrix4x4.identity, visibility, pickId);
             }
 
             /// <summary>
@@ -182,10 +191,15 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         /// </summary>
         public UniTask UpdateItems(Matrix4x4[] itemTrans, bool[] itemState)
         {
-            return UpdateItems(itemTrans, itemState, null);
+            return UpdateItems(itemTrans, itemState, null, null);
         }
 
         public async UniTask UpdateItems(Matrix4x4[] itemTrans, bool[] itemState, float[] itemVisibilities)
+        {
+            await UpdateItems(itemTrans, itemState, itemVisibilities, null);
+        }
+
+        public async UniTask UpdateItems(Matrix4x4[] itemTrans, bool[] itemState, float[] itemVisibilities, uint[] itemPickIds)
         {
             if (_released)
             {
@@ -200,11 +214,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             if (useThreadPoolForBuild)
             {
                 await UniTask.SwitchToThreadPool();
-                nextItems = BuildItems(itemTrans, itemState, itemVisibilities);
+                nextItems = BuildItems(itemTrans, itemState, itemVisibilities, itemPickIds);
             }
             else
             {
-                nextItems = BuildItems(itemTrans, itemState, itemVisibilities);
+                nextItems = BuildItems(itemTrans, itemState, itemVisibilities, itemPickIds);
             }
 
             await UniTask.SwitchToMainThread();
@@ -253,6 +267,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         /// <returns>是否成功走快速路径；false 时调用方应回退到 <see cref="UpdateItems"/>。</returns>
         public bool TryPatchVisibilitiesOnly(Matrix4x4[] itemTrans, bool[] itemState, float[] itemVisibilities)
         {
+            return TryPatchVisibilitiesOnly(itemTrans, itemState, itemVisibilities, null);
+        }
+
+        public bool TryPatchVisibilitiesOnly(Matrix4x4[] itemTrans, bool[] itemState, float[] itemVisibilities, uint[] itemPickIds)
+        {
             if (_released || itemTrans == null || itemState == null)
             {
                 return false;
@@ -295,7 +314,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
                     ItemInstanceData current = Items[itemIndex];
                     float visibility = ResolveItemVisibility(itemVisibilities, i);
-                    Items[itemIndex] = new ItemInstanceData(current.Matrix, visibility);
+                    uint pickId = ResolveItemPickId(itemPickIds, i, current.PickId);
+                    Items[itemIndex] = new ItemInstanceData(current.Matrix, visibility, pickId);
                     itemIndex++;
                 }
 
@@ -329,6 +349,16 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             RenderBackend();
         }
 
+        internal void RenderPick(Material pickMaterial, CommandBuffer cmd)
+        {
+            if (pickMaterial == null || cmd == null || Mesh == null || Items == null || Items.Count == 0)
+            {
+                return;
+            }
+
+            RenderPickBatches(pickMaterial, cmd);
+        }
+
         /// <summary>
         /// 释放子类持有的 GPU 资源。
         /// </summary>
@@ -343,6 +373,10 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         /// 按双缓冲状态提交一帧绘制。
         /// </summary>
         protected abstract void RenderBackend();
+
+        internal int UploadedInstanceCount => Items?.Count ?? 0;
+
+        internal bool CanPickRender => RenderFromA ? CanRenderA : CanRenderB;
 
         /// <summary>
         /// 除网格外，子类是否已具备上传条件（如间接路径的命令缓冲已创建）。
@@ -379,7 +413,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             };
         }
 
-        private List<ItemInstanceData> BuildItems(Matrix4x4[] itemTrans, bool[] itemState, float[] itemVisibilities)
+        private List<ItemInstanceData> BuildItems(Matrix4x4[] itemTrans, bool[] itemState, float[] itemVisibilities, uint[] itemPickIds)
         {
             int capacity = 0;
             if (itemTrans != null && itemState != null)
@@ -416,7 +450,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 }
 
                 float visibility = ResolveItemVisibility(itemVisibilities, i);
-                result.Add(new ItemInstanceData(itemTrans[i] * _offset, visibility));
+                uint pickId = ResolveItemPickId(itemPickIds, i, WarehousePickId.Miss);
+                result.Add(new ItemInstanceData(itemTrans[i] * _offset, visibility, pickId));
             }
 
             return result;
@@ -435,6 +470,45 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             }
 
             return Mathf.Clamp01(itemVisibilities[index]);
+        }
+
+        private static uint ResolveItemPickId(uint[] itemPickIds, int index, uint fallback)
+        {
+            if (itemPickIds == null || itemPickIds.Length == 0 || index < 0 || index >= itemPickIds.Length)
+            {
+                return fallback;
+            }
+
+            return itemPickIds[index];
+        }
+
+        private void RenderPickBatches(Material pickMaterial, CommandBuffer cmd)
+        {
+            int totalCount = Items.Count;
+            for (int start = 0; start < totalCount; start += PickBatchSize)
+            {
+                int batchCount = Mathf.Min(PickBatchSize, totalCount - start);
+                for (int i = 0; i < batchCount; i++)
+                {
+                    ItemInstanceData item = Items[start + i];
+                    _pickMatrices[i] = item.Matrix;
+                    _pickColors[i] = EncodePickColor(item.PickId);
+                }
+
+                _pickMaterialProperties.Clear();
+                _pickMaterialProperties.SetVectorArray(WarehousePickColorPropertyId, _pickColors);
+                cmd.DrawMeshInstanced(Mesh, 0, pickMaterial, 0, _pickMatrices, batchCount, _pickMaterialProperties);
+            }
+        }
+
+        private static Vector4 EncodePickColor(uint pickId)
+        {
+            const float inv255 = 1f / 255f;
+            return new Vector4(
+                (pickId & 0xFFu) * inv255,
+                ((pickId >> 8) & 0xFFu) * inv255,
+                ((pickId >> 16) & 0xFFu) * inv255,
+                ((pickId >> 24) & 0xFFu) * inv255);
         }
 
         private void SwapItems(List<ItemInstanceData> nextItems)
@@ -661,9 +735,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         private void DrawMatrixInstancedBatches(
             in RenderParams rp,
             Matrix4x4[][] matrixBatches,
-            ItemInstanceData[][] instanceBatches)
+            ItemInstanceData[][] instanceBatches,
+            Material pickMaterial = null)
         {
-            if (Mesh == null || rp.material == null || matrixBatches == null || instanceBatches == null ||
+            Material material = pickMaterial != null ? pickMaterial : rp.material;
+            if (Mesh == null || material == null || matrixBatches == null || instanceBatches == null ||
                 matrixBatches.Length == 0)
             {
                 return;
@@ -686,7 +762,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 Graphics.DrawMeshInstanced(
                     Mesh,
                     0,
-                    rp.material,
+                    material,
                     matrixBatch,
                     matrixBatch.Length,
                     rp.matProps,
@@ -752,7 +828,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 {
                     ItemInstanceData item = items[chunkStart + i];
                     matrixBatches[batchIndex][i] = item.Matrix;
-                    instanceBatches[batchIndex][i] = ItemInstanceData.Identity(item.Visibility);
+                    instanceBatches[batchIndex][i] = ItemInstanceData.Identity(item.Visibility, item.PickId);
                 }
             }
         }

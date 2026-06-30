@@ -4,6 +4,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using NonsensicalKit.Core;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace NonsensicalKit.DigitalTwin.Warehouse
 {
@@ -146,6 +147,33 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 foreach (var part in chunk.Parts)
                 {
                     part.Render(true);
+                }
+            }
+        }
+
+        internal void RenderPickLoads(CommandBuffer cmd, Material pickMaterial)
+        {
+            if (cmd == null || _released || pickMaterial == null || !HasChunks())
+            {
+                return;
+            }
+
+            if (_chunkBoundsDirty)
+            {
+                UpdateChunkWorldBounds();
+                _chunkBoundsDirty = false;
+            }
+
+            foreach (var chunk in _chunks)
+            {
+                foreach (var part in chunk.Parts)
+                {
+                    if (!part.CanPickRender)
+                    {
+                        continue;
+                    }
+
+                    part.RenderPick(pickMaterial, cmd);
                 }
             }
         }
@@ -394,13 +422,13 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                         foreach (var part in chunk.Parts)
                         {
                             if (visibilityOnly &&
-                                part.TryPatchVisibilitiesOnly(chunk.Transforms, chunk.States, chunk.Visibilities))
+                                part.TryPatchVisibilitiesOnly(chunk.Transforms, chunk.States, chunk.Visibilities, chunk.PickIds))
                             {
                                 continue;
                             }
 
                             _updateTasksCache[taskIndex++] =
-                                part.UpdateItems(chunk.Transforms, chunk.States, chunk.Visibilities);
+                                part.UpdateItems(chunk.Transforms, chunk.States, chunk.Visibilities, chunk.PickIds);
                             taskCount++;
                         }
                     }
@@ -510,6 +538,9 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                                     chunk.Visibilities[index] = hasBin
                                         ? Mathf.Clamp01(_loadVisibilities[layer, column, row, depth])
                                         : 0f;
+                                    chunk.PickIds[index] = hasBin
+                                        ? WarehousePickId.Encode(layer, column, row, depth, _cellCount)
+                                        : WarehousePickId.Miss;
                                     index++;
                                 }
                             }
@@ -593,6 +624,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             var transforms = new Matrix4x4[capacity];
             var states = new bool[capacity];
             var visibilities = new float[capacity];
+            var pickIds = new uint[capacity];
             var parts = new List<RenderObject>(_partTemplates.Count);
             float globalVisibility;
             lock (_updateLock)
@@ -619,6 +651,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 transforms,
                 states,
                 visibilities,
+                pickIds,
                 parts,
                 localBounds,
                 hasValidCell);
@@ -1033,6 +1066,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             public readonly Matrix4x4[] Transforms;
             public readonly bool[] States;
             public readonly float[] Visibilities;
+            public readonly uint[] PickIds;
             public readonly List<RenderObject> Parts;
             public readonly Bounds LocalBounds;
             public readonly bool HasValidCell;
@@ -1050,6 +1084,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 Matrix4x4[] transforms,
                 bool[] states,
                 float[] visibilities,
+                uint[] pickIds,
                 List<RenderObject> parts,
                 Bounds localBounds,
                 bool hasValidCell)
@@ -1065,6 +1100,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 Transforms = transforms;
                 States = states;
                 Visibilities = visibilities;
+                PickIds = pickIds;
                 Parts = parts;
                 LocalBounds = localBounds;
                 HasValidCell = hasValidCell;
