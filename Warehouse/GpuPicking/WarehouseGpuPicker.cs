@@ -22,9 +22,9 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
     /// 与 Unity 写入 RenderTexture 的约定一致；读回像素时一般<b>不要再翻 Y</b>。</item>
     /// </list>
     /// 因此「点击采样」与「调试预览显示」使用<b>两套</b>翻转开关，切勿共用同一常量。
-    /// 若换项目/图形 API 后点击上下或左右颠倒，只改 <see cref="FlipPickSampleX"/> /
-    /// <see cref="FlipPickSampleY"/>；若仅右下角 RT 预览方向不对，只改
-    /// <see cref="FlipPickPreviewX"/> / <see cref="FlipPickPreviewY"/>（并同步 Demo 里十字准星绘制）。
+    /// 点击采样 Y 见 <see cref="WarehouseGpuPickSettings"/>（URP 17 / Unity 6 自动翻转；
+    /// URP 12–16 默认不翻转）。外部可设 <see cref="WarehouseGpuPickSettings.FlipPickSampleYOverride"/>。
+    /// 预览方向仅改 <see cref="FlipPickPreviewX"/> / <see cref="FlipPickPreviewY"/>。
     /// </para>
     /// </summary>
     internal sealed class WarehouseGpuPicker
@@ -33,9 +33,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         private const string PickMaterialResourcesPath = "WarehouseGpuPick";
 
         // --- 点击读回 RT 时的像素映射（影响 Pick 命中，与预览无关）---
-        // URP + GetGPUProjectionMatrix(..., true) 下，mouse 像素与 RT 像素通常 1:1，保持 false。
+        // 默认不翻 Y：见 WarehouseGpuPickSettings.DefaultFlipPickSampleY；运行时以 WarehouseGpuPickSettings.FlipPickSampleY 为准。
         private const bool FlipPickSampleX = false;
-        private const bool FlipPickSampleY = false;
 
         // --- 调试预览在 OnGUI 上绘制时的 UV 翻转（仅影响 LastPickPreview 显示）---
         // GUI 坐标系 Y 向下，RT 内容 Y 向上，故预览常需 FlipPreviewY = true。
@@ -345,7 +344,6 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
             Matrix4x4 view = sourceCamera.worldToCameraMatrix;
             // renderIntoTexture=true：与 SetRenderTarget(RT) 配套，保证 RT 内像素与屏幕 mouse 像素对齐。
-            // 若此处改为 false 或换管线，需同步检查 FlipPickSampleX/Y。
             Matrix4x4 proj = GL.GetGPUProjectionMatrix(sourceCamera.projectionMatrix, true);
 
             CommandBuffer cmd = new CommandBuffer { name = "WarehouseGpuPick" };
@@ -382,10 +380,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
             RenderTexture previousActive = RenderTexture.active;
             RenderTexture.active = _target;
-            // pixelX/pixelY 来自 Input.mousePosition（左下原点）；ReadPixels 同样左下原点。
-            // 仅当「点击位置与读回颜色上下/左右对调」时，才打开 FlipPickSampleX/Y。
+            // pixelX/pixelY：Input.mousePosition（左下）。Y 翻转见 WarehouseGpuPickSettings（启动时解析一次）。
             int sampleX = FlipPickSampleX ? _target.width - 1 - pixelX : pixelX;
-            int sampleY = FlipPickSampleY ? _target.height - 1 - pixelY : pixelY;
+            int sampleY = WarehouseGpuPickSettings.FlipPickSampleY
+                ? _target.height - 1 - pixelY
+                : pixelY;
             _syncReadbackTexture.ReadPixels(new Rect(sampleX, sampleY, 1, 1), 0, 0, false);
             _syncReadbackTexture.Apply(false, false);
             RenderTexture.active = previousActive;
