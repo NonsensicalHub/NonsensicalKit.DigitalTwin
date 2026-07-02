@@ -33,8 +33,13 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         private const string PickMaterialResourcesPath = "WarehouseGpuPick";
 
         // --- 点击读回 RT 时的像素映射（影响 Pick 命中，与预览无关）---
+        //**重要**//
+        //若出现实际点击位置与拾取位置出现上下颠倒 
+        //可设置 WarehouseGpuPickSettings.FlipPickSampleYOverride 参数;
+        //*******//
         // 默认不翻 Y：见 WarehouseGpuPickSettings.DefaultFlipPickSampleY；运行时以 WarehouseGpuPickSettings.FlipPickSampleY 为准。
         private const bool FlipPickSampleX = false;
+    
 
         // --- 调试预览在 OnGUI 上绘制时的 UV 翻转（仅影响 LastPickPreview 显示）---
         // GUI 坐标系 Y 向下，RT 内容 Y 向上，故预览常需 FlipPreviewY = true。
@@ -197,13 +202,12 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                     hasSample: true);
             }
 
-            bool binFound = false;
-            bool showCargo = false;
-            RuntimeBinData binData = null;
+            var binFound = false;
+            var showCargo = false;
             if (binDataStore != null)
             {
-                binFound = binDataStore.TryGet(decoded, out binData);
-                showCargo = binFound && binData != null && binData.ShowCargo;
+                binFound = binDataStore.TryGet(decoded, out var binData);
+                showCargo = binFound && binData is { ShowCargo: true };
             }
 
             if (!binFound)

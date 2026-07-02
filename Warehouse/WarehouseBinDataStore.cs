@@ -16,7 +16,14 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         public int ColumnCount => HasBinData ? _binData.Length1 : 0;
         public int RowCount => HasBinData ? _binData.Length2 : 0;
         public int DepthCount => HasBinData ? _binData.Length3 : 0;
-        
+
+        private bool _defaultShowCargo = true;
+
+        public void SetDefaultShowCargo(bool defaultShowCargo)
+        {
+            _defaultShowCargo = defaultShowCargo;
+        }
+
         public async UniTask<bool> LoadAsync(string warehouseName)
         {
             var data = await BinDataIO.LoadFromStreamingAssetsAsync($"Warehouse/{warehouseName}.dat");
@@ -45,7 +52,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             _binData = new Array4<RuntimeBinData>(data.Dimensions);
             foreach (var bin in data.Bins)
             {
-                _binData[bin.Level, bin.Column, bin.Row, bin.Depth] = new RuntimeBinData(bin.PosX, bin.PosY, bin.PosZ);
+                _binData[bin.Level, bin.Column, bin.Row, bin.Depth] = new RuntimeBinData(bin.PosX, bin.PosY, bin.PosZ, _defaultShowCargo);
             }
 
             IsReady = true;

@@ -1,5 +1,6 @@
 using System;
 using Cysharp.Threading.Tasks;
+using NaughtyAttributes;
 using NonsensicalKit.Core;
 using UnityEngine;
 using UnityEngine.Events;
@@ -13,6 +14,9 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
     public sealed class WarehouseManager : NonsensicalMono
     {
         [SerializeField] private string m_warehouseName;
+        [SerializeField] private bool m_autoInit = true;
+        [SerializeField, Label("默认显示所有货物")] private bool m_defaultShowAllCargo = true;
+
         [SerializeField] private GameObject[] m_cargoPrefabs;
         [SerializeField] private GameObject m_highlightCargo;
         [SerializeField] private GameObject m_highlightIndicator;
@@ -34,7 +38,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         /// <summary>最近一次 GPU Picking 的调试信息。</summary>
         public WarehouseGpuPickDebugInfo LastGpuPickDebugInfo => _gpuPicker?.LastDebugInfo ?? WarehouseGpuPickDebugInfo.Empty("gpu picking disabled");
-        
+
         /// <summary>
         /// 全仓库货物实例的全局显隐乘数 [0,1]（材质 <c>_DitherVisibility</c>，与各格位显隐相乘）。
         /// </summary>
@@ -59,7 +63,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         {
             SetGlobalCargoVisibility(value);
         }
-        
+
         private void OnValidate()
         {
             if (m_chunkCullDistance < 0f) m_chunkCullDistance = 0f;
@@ -68,14 +72,17 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         private void Awake()
         {
             ChangeGlobalCargoVisibility.AddListener(Change);
+            _binDataStore.SetDefaultShowCargo(m_defaultShowAllCargo);
+
             _highlightController = new WarehouseHighlightController(m_highlightCargo, m_highlightIndicator);
-         
+
             if (m_enableGpuPicking)
             {
                 EnsureGpuPicker();
             }
-            
-            Init().Forget();
+
+            if (m_autoInit)
+                Init().Forget();
         }
 
         private void Update()
@@ -136,6 +143,22 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             if (!HasCargoConfigs()) return;
             foreach (var item in _cargoConfigs) item?.Release();
         }
+
+        public void HandleInit()
+        {
+            Init().Forget();
+        }
+
+        /// <summary>
+        /// 获取坐标映射
+        /// </summary>
+        /// <param name="cellLocation">货物位置坐标</param>
+        /// <returns></returns>
+        public RuntimeBinData GetRuntimeBinData(Int4 cellLocation)
+        {
+            return _binDataStore.TryGet(cellLocation, out var binData) ? binData : null;
+        }
+
 
         #region Enable GPU Picking
 
@@ -315,6 +338,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         #endregion
 
+        #region LocalHighlight
+
         public bool LocateHighlightBin(Int4 cellLocation)
         {
             if (!_highlightController.CanHighlight())
@@ -342,8 +367,10 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             _highlightController.Hide();
         }
 
+        #endregion
+
         #region GPU Picking
-        
+
         public async UniTask<bool> TryPickCargoAsync(
             Vector2 screenPosition,
             Action<Int4> onPicked = null,
@@ -366,7 +393,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             Action<Int4> onPicked = null,
             bool locateHighlight = true)
         {
-            if (_destroying || !_inited || !HasCargoConfigs() || !_binDataStore.IsReady||_gpuPicker==null)
+            if (_destroying || !_inited || !HasCargoConfigs() || !_binDataStore.IsReady || _gpuPicker == null)
             {
                 return false;
             }
