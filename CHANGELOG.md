@@ -41,3 +41,5 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - 新增本机作为Socket主机的功能
 - WareHouseManager增加货物点击功能
 
+### Fixed
+- WareHouseManager设置全部货物状态异常

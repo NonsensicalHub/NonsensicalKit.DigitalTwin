@@ -217,7 +217,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             _binDataStore.ApplyToColumn(columnIndex, (cellLocation, binData) =>
             {
                 Matrix4x4 matrix = Matrix4x4.TRS(binData.Pos, rotation, Vector3.one);
-                ApplyToConfigs(cellLocation, matrix, state, binData.Visibility);
+                ApplyToConfigs(cellLocation, matrix, state && binData.ShowCargo, binData.Visibility);
             });
 
             RequestConfigUpdate();
