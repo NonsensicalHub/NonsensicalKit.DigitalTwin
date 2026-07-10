@@ -36,6 +36,11 @@
       "displayName": "Warehouse",
       "description": "\u4ed3\u5e93\u8d27\u4f4d\u7ba1\u7406\u793a\u4f8b",
       "path": "Samples~/Warehouse"
+    },
+    {
+      "displayName": "UIFrame框架资源",
+      "description": "仓储示例框架资源地址,因资源文件较大,需自行下载:https://github.com/NonsensicalHub/NonsensicalKit.DigitalTwin.UIFrame.git",
+      "path": "Samples~/UIFrame"
     }
   ]
 }
