@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using NaughtyAttributes;
 using NonsensicalKit.Core;
@@ -16,6 +17,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         [SerializeField] private string m_warehouseName;
         [SerializeField] private bool m_autoInit = true;
         [SerializeField, Label("默认显示所有货物")] private bool m_defaultShowAllCargo = true;
+        [SerializeField] private bool m_enableHighlightCargo = true;
 
         [SerializeField] private GameObject[] m_cargoPrefabs;
         [SerializeField] private GameObject m_highlightCargo;
@@ -27,6 +29,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         [SerializeField] private bool m_logWarehousePerf;
         [SerializeField] private bool m_enableGpuPicking;
         [SerializeField] private bool m_debugGpuPicking;
+        [SerializeField, Label("共享 GPU Picking")] private bool m_useSharedGpuPicker;
+        [SerializeField, Label("Picking 忽略 ShowCargo 校验")] private bool m_ignoreGpuPickShowCargo;
 
         public bool Inited => _inited;
 
@@ -55,9 +59,19 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         private WarehouseHighlightController _highlightController;
         private bool _destroying;
 
+        private static WarehouseGpuPicker s_sharedGpuPicker;
+        private static readonly HashSet<WarehouseManager> s_sharedGpuManagers = new HashSet<WarehouseManager>();
+        private static readonly List<CargoConfig> s_sharedGpuPickConfigs = new List<CargoConfig>();
+
         private float _nextPerfLogTime;
 
         public UnityEvent<float> ChangeGlobalCargoVisibility;
+
+        public void WarehouseName(string a)
+        {
+           m_warehouseName = a;
+           
+        }
 
         public void Change(float value)
         {
@@ -76,7 +90,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
             _highlightController = new WarehouseHighlightController(m_highlightCargo, m_highlightIndicator);
 
-            if (m_enableGpuPicking)
+            if (m_enableGpuPicking || m_useSharedGpuPicker)
             {
                 EnsureGpuPicker();
             }
@@ -128,7 +142,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 {
                     _gpuPicker.SetContinuousPreview(
                         previewCamera,
-                        _cargoConfigs,
+                        GetGpuPickConfigs(),
                         _globalCargoVisibility);
                 }
             }
@@ -173,11 +187,36 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 {
                     EnsureGpuPicker();
                 }
-                else
+                else if (!m_useSharedGpuPicker)
                 {
                     ReleaseGpuPicker();
                 }
             }
+        }
+
+        public bool UseSharedGpuPicker
+        {
+            get => m_useSharedGpuPicker;
+            set
+            {
+                if (m_useSharedGpuPicker == value)
+                {
+                    return;
+                }
+
+                ReleaseGpuPicker();
+                m_useSharedGpuPicker = value;
+                if (m_enableGpuPicking || m_useSharedGpuPicker)
+                {
+                    EnsureGpuPicker();
+                }
+            }
+        }
+
+        public bool IgnoreGpuPickShowCargo
+        {
+            get => m_ignoreGpuPickShowCargo;
+            set => m_ignoreGpuPickShowCargo = value;
         }
 
         public bool DebugGpuPicking
@@ -410,13 +449,15 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             }
 
             EnsureGpuPicker();
+            IReadOnlyList<CargoConfig> pickConfigs = GetGpuPickConfigs();
             WarehousePickResult result = await _gpuPicker.PickAsync(
                 screenPosition,
                 renderCamera,
-                _cargoConfigs,
+                pickConfigs,
                 _binDataStore.Size,
                 _globalCargoVisibility,
-                _binDataStore);
+                _binDataStore,
+                m_ignoreGpuPickShowCargo);
 
             if (!result.Hit)
             {
@@ -434,6 +475,23 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         private void EnsureGpuPicker()
         {
+            if (m_useSharedGpuPicker)
+            {
+                if (s_sharedGpuPicker == null)
+                {
+                    s_sharedGpuPicker = new WarehouseGpuPicker();
+                }
+
+                s_sharedGpuManagers.Add(this);
+                _gpuPicker = s_sharedGpuPicker;
+                if (m_enableGpuPicking)
+                {
+                    _gpuPicker.DebugEnabled = m_debugGpuPicking;
+                }
+
+                return;
+            }
+
             if (_gpuPicker != null)
             {
                 _gpuPicker.DebugEnabled = m_debugGpuPicking;
@@ -448,6 +506,20 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         private void ReleaseGpuPicker()
         {
+            bool wasShared = s_sharedGpuManagers.Remove(this);
+            if (wasShared)
+            {
+                _gpuPicker = null;
+                if (s_sharedGpuManagers.Count == 0 && s_sharedGpuPicker != null)
+                {
+                    s_sharedGpuPicker.Release();
+                    s_sharedGpuPicker = null;
+                    s_sharedGpuPickConfigs.Clear();
+                }
+
+                return;
+            }
+
             if (_gpuPicker == null)
             {
                 return;
@@ -455,6 +527,47 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
             _gpuPicker.Release();
             _gpuPicker = null;
+        }
+
+        private IReadOnlyList<CargoConfig> GetGpuPickConfigs()
+        {
+            if (!m_useSharedGpuPicker)
+            {
+                return _cargoConfigs;
+            }
+
+            s_sharedGpuPickConfigs.Clear();
+            Int4 dimensions = _binDataStore.Size;
+            foreach (WarehouseManager manager in s_sharedGpuManagers)
+            {
+                if (manager == null
+                    || manager._destroying
+                    || !manager.m_useSharedGpuPicker
+                    || !manager._inited
+                    || !manager.isActiveAndEnabled
+                    || !manager.HasCargoConfigs()
+                    || manager.m_warehouseName != m_warehouseName
+                    || !HasSameDimensions(manager._binDataStore.Size, dimensions))
+                {
+                    continue;
+                }
+
+                for (int i = 0; i < manager._cargoConfigs.Length; i++)
+                {
+                    CargoConfig config = manager._cargoConfigs[i];
+                    if (config != null)
+                    {
+                        s_sharedGpuPickConfigs.Add(config);
+                    }
+                }
+            }
+
+            return s_sharedGpuPickConfigs;
+        }
+
+        private static bool HasSameDimensions(Int4 a, Int4 b)
+        {
+            return a.X == b.X && a.Y == b.Y && a.Z == b.Z && a.W == b.W;
         }
 
         #endregion
@@ -532,7 +645,10 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         private void Subscribe()
         {
-            AddHandler<Int4, bool>("LocateHighlightBin", m_warehouseName, LocateHighlightBin);
+            if (m_enableHighlightCargo)
+            { 
+                AddHandler<Int4, bool>("LocateHighlightBin", m_warehouseName, LocateHighlightBin);
+            }
             Subscribe("HideHighlightBin", m_warehouseName, HideHighlightBin);
         }
 
