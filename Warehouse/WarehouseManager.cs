@@ -393,7 +393,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 return false;
             }
 
-            return _highlightController.Locate(transform, binData);
+            return _highlightController.Locate(transform, binData,m_ignoreGpuPickShowCargo);
         }
 
         public bool LocateHighlightBin(int layer, int column, int row, int depth)
