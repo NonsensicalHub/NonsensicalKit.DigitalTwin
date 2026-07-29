@@ -18,10 +18,19 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         public int DepthCount => HasBinData ? _binData.Length3 : 0;
 
         private bool _defaultShowCargo = true;
+        private bool _logInvalidSlotIndex = true;
 
         public void SetDefaultShowCargo(bool defaultShowCargo)
         {
             _defaultShowCargo = defaultShowCargo;
+        }
+
+        /// <summary>
+        /// 是否对非法货位索引打报警日志。对接假数据时可关闭，仅静默丢弃无效访问。
+        /// </summary>
+        public void SetLogInvalidSlotIndex(bool logInvalidSlotIndex)
+        {
+            _logInvalidSlotIndex = logInvalidSlotIndex;
         }
 
         public async UniTask<bool> LoadAsync(string warehouseName)
@@ -69,7 +78,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
             if (!IsValidLocation(location))
             {
-                Debug.LogWarning($"[Warehouse] 非法货位索引: {location}");
+                if (_logInvalidSlotIndex)
+                {
+                    Debug.LogWarning($"[Warehouse] 非法货位索引: {location}");
+                }
+
                 return false;
             }
 

@@ -16,6 +16,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         [SerializeField] private string m_warehouseName;
         [SerializeField] private bool m_autoInit = true;
         [SerializeField, Label("默认显示所有货物")] private bool m_defaultShowAllCargo = true;
+        [SerializeField, Label("非法货位索引报警"), Tooltip("关闭后，非法货位索引仅静默丢弃（适合对接假数据），不再打 Warning 日志。")]
+        private bool m_logInvalidSlotIndex = true;
 
         [SerializeField] private GameObject[] m_cargoPrefabs;
         [SerializeField] private GameObject m_highlightCargo;
@@ -67,12 +69,14 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         private void OnValidate()
         {
             if (m_chunkCullDistance < 0f) m_chunkCullDistance = 0f;
+            _binDataStore?.SetLogInvalidSlotIndex(m_logInvalidSlotIndex);
         }
 
         private void Awake()
         {
             ChangeGlobalCargoVisibility.AddListener(Change);
             _binDataStore.SetDefaultShowCargo(m_defaultShowAllCargo);
+            _binDataStore.SetLogInvalidSlotIndex(m_logInvalidSlotIndex);
 
             _highlightController = new WarehouseHighlightController(m_highlightCargo, m_highlightIndicator);
 
@@ -266,6 +270,37 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             ApplyToConfigs(cellLocation, matrix, show, binData.Visibility);
 
             if (autoUpdate) RequestConfigUpdate();
+        }
+
+        /// <summary>
+        /// 设置全部货位的显示状态。
+        /// </summary>
+        /// <param name="show">true 全部显示，false 全部不显示。</param>
+        /// <param name="autoUpdate">是否立即请求分块重建。</param>
+        public void SetAllCargoState(bool show, bool autoUpdate = true)
+        {
+            if (!HasCargoConfigs() || !_binDataStore.IsReady) return;
+
+            _binDataStore.ForEachBin((layer, column, row, depth, binData) =>
+            {
+                if (binData.ShowCargo == show) return;
+
+                var cellLocation = new Int4(layer, column, row, depth);
+                Matrix4x4 matrix = ResolveCargoStateMatrix(binData, show);
+                binData.ShowCargo = show;
+                ApplyToConfigs(cellLocation, matrix, show, binData.Visibility);
+            });
+
+            if (autoUpdate) RequestConfigUpdate();
+        }
+
+        /// <summary>
+        /// 清空全部货位显示（全部不显示），并隐藏高亮。
+        /// </summary>
+        public void ClearAllCargo(bool autoUpdate = true)
+        {
+            HideHighlightBin();
+            SetAllCargoState(false, autoUpdate);
         }
 
         public void SetCargoVisibility(Int4 cellLocation, float visibility, bool autoUpdate = true)
