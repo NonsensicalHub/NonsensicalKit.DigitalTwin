@@ -431,6 +431,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             return CreateTestWarehouse(100, 100, 100, 1, origin, spacing);
         }
 
+        public static WarehouseData CreateTestWarehouse10x10x10( Vector3 origin = default, Vector3? spacing = null)
+        {
+            return CreateTestWarehouse(10, 10, 10,  1, origin, spacing);
+        }
+
         #endregion
     }
 }

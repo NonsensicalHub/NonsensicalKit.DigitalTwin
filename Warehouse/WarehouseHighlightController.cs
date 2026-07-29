@@ -18,7 +18,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             return _highlightCargo != null || _highlightIndicator != null;
         }
 
-        public bool Locate(Transform warehouseTransform, RuntimeBinData binData)
+        public bool Locate(Transform warehouseTransform, RuntimeBinData binData,bool  ignoreGpuPickShowCargo)
         {
             if (warehouseTransform == null || binData == null)
             {
@@ -44,7 +44,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
             if (_highlightCargo != null)
             {
-                _highlightCargo.SetActive(binData.ShowCargo);
+                _highlightCargo.SetActive(ignoreGpuPickShowCargo||binData.ShowCargo);
             }
 
             if (_highlightIndicator != null)

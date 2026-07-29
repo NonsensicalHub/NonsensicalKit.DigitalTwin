@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using NonsensicalKit.Core;
 using UnityEngine;
@@ -84,9 +85,12 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         public WarehouseGpuPickDebugInfo LastDebugInfo { get; private set; } =
             WarehouseGpuPickDebugInfo.Empty(string.Empty);
 
-        public void SetContinuousPreview(Camera camera, CargoConfig[] cargoConfigs, float globalCargoVisibility)
+        public void SetContinuousPreview(
+            Camera camera,
+            IReadOnlyList<CargoConfig> cargoConfigs,
+            float globalCargoVisibility)
         {
-            if (!DebugEnabled || camera == null || cargoConfigs == null || cargoConfigs.Length == 0)
+            if (!DebugEnabled || camera == null || cargoConfigs == null || cargoConfigs.Count == 0)
             {
                 return;
             }
@@ -103,17 +107,18 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         public UniTask<WarehousePickResult> PickAsync(
             Vector2 screenPosition,
             Camera camera,
-            CargoConfig[] cargoConfigs,
+            IReadOnlyList<CargoConfig> cargoConfigs,
             Int4 dimensions,
             float globalCargoVisibility,
-            WarehouseBinDataStore binDataStore)
+            WarehouseBinDataStore binDataStore,
+            bool ignoreShowCargo)
         {
             if (camera == null)
             {
                 return UniTask.FromResult(LogMiss(screenPosition, failReason: "camera is null"));
             }
 
-            if (cargoConfigs == null || cargoConfigs.Length == 0)
+            if (cargoConfigs == null || cargoConfigs.Count == 0)
             {
                 return UniTask.FromResult(LogMiss(screenPosition, failReason: "cargo configs not ready"));
             }
@@ -148,7 +153,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 pixelY,
                 color,
                 dimensions,
-                binDataStore);
+                binDataStore,
+                ignoreShowCargo);
             return UniTask.FromResult(result);
         }
 
@@ -185,7 +191,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             int pixelY,
             Color32 color,
             Int4 dimensions,
-            WarehouseBinDataStore binDataStore)
+            WarehouseBinDataStore binDataStore,
+            bool ignoreShowCargo)
         {
             uint pickId = WarehousePickId.DecodeColor(color);
             if (!WarehousePickId.TryDecode(pickId, dimensions, out Int4 decoded))
@@ -224,7 +231,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                     hasSample: true);
             }
 
-            if (!showCargo)
+            if (!showCargo && !ignoreShowCargo)
             {
                 return LogMiss(screenPosition, pixelX, pixelY,
                     color,
@@ -248,8 +255,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                     true,
                     decoded,
                     true,
-                    true,
-                    "hit");
+                    showCargo,
+                    !showCargo && ignoreShowCargo ? "hit (ShowCargo ignored)" : "hit");
             }
 
             return new WarehousePickResult(true, decoded);
@@ -332,7 +339,10 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             return true;
         }
 
-        private void RenderPickingPass(Camera sourceCamera, CargoConfig[] cargoConfigs, float globalCargoVisibility)
+        private void RenderPickingPass(
+            Camera sourceCamera,
+            IReadOnlyList<CargoConfig> cargoConfigs,
+            float globalCargoVisibility)
         {
             _pickMaterial.SetFloat(DitherVisibilityPropertyId, Mathf.Clamp01(globalCargoVisibility));
 
@@ -355,7 +365,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             cmd.ClearRenderTarget(true, true, Color.black, reversedZ ? 0f : 1f);
             cmd.SetViewProjectionMatrices(view, proj);
 
-            for (int i = 0; i < cargoConfigs.Length; i++)
+            for (int i = 0; i < cargoConfigs.Count; i++)
             {
                 CargoConfig config = cargoConfigs[i];
                 if (config == null)

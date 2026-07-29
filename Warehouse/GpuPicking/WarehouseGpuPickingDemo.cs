@@ -20,7 +20,7 @@ public sealed class WarehouseGpuPickingDemo : MonoBehaviour
 
     private void Reset()
     {
-        m_warehouseManager = FindObjectOfType<WarehouseManager>();
+        m_warehouseManager = FindFirstObjectByType<WarehouseManager>();
         m_camera = Camera.main;
     }
 
