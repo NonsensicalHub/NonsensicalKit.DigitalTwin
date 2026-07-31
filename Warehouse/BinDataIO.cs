@@ -67,6 +67,12 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         private const int HeaderDimZOffset = IntByteSize * 6;
         private const int HeaderDimWOffset = IntByteSize * 7;
 
+        /// <summary>单轴上限，防止异常头字段直接撑爆内存。</summary>
+        private const int MaxDimensionAxis = 10000;
+
+        /// <summary>货位总数上限（Array4 元素数）。100³ 测试仓约 1e6，此处留余量。</summary>
+        private const long MaxTotalCells = 16_000_000L;
+
         private readonly struct V1Header
         {
             public readonly int Magic;
@@ -179,7 +185,9 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 // 兼容旧格式：首个 int 为条目数量，不包含 v1 头部信息。
                 var binsFromLegacy = DeserializeLegacyBinData(buffer);
                 var inferred = InferDimensions(binsFromLegacy);
-                return new WarehouseData(binsFromLegacy, inferred);
+                var legacyData = new WarehouseData(binsFromLegacy, inferred);
+                ValidateWarehouseData(legacyData);
+                return legacyData;
             }
 
             var header = ReadV1Header(buffer);
@@ -193,7 +201,9 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             if (header.Count > 0)
                 CopyBufferToBins(buffer, header.HeaderSize, bins, dataByteSize);
 
-            return new WarehouseData(bins, header.Dimensions);
+            var data = new WarehouseData(bins, header.Dimensions);
+            ValidateWarehouseData(data);
+            return data;
         }
 
         private static BinData[] DeserializeLegacyBinData(byte[] buffer)
@@ -263,6 +273,20 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         {
             if (dimensions.X < 0 || dimensions.Y < 0 || dimensions.Z < 0 || dimensions.W < 0)
                 throw new InvalidDataException("Warehouse dimensions cannot be negative.");
+
+            if (dimensions.X > MaxDimensionAxis || dimensions.Y > MaxDimensionAxis ||
+                dimensions.Z > MaxDimensionAxis || dimensions.W > MaxDimensionAxis)
+            {
+                throw new InvalidDataException(
+                    $"Warehouse dimension axis exceeds limit {MaxDimensionAxis}: {dimensions}.");
+            }
+
+            long totalCells = (long)dimensions.X * dimensions.Y * dimensions.Z * dimensions.W;
+            if (totalCells > MaxTotalCells)
+            {
+                throw new InvalidDataException(
+                    $"Warehouse cell count {totalCells} exceeds limit {MaxTotalCells}: {dimensions}.");
+            }
         }
 
         private static void ValidateWarehouseData(WarehouseData data)
@@ -272,6 +296,33 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             if (data.Bins == null)
                 throw new ArgumentException("WarehouseData.Bins cannot be null.", nameof(data));
             ValidateDimensions(data.Dimensions);
+            ValidateBinsAgainstDimensions(data);
+        }
+
+        private static void ValidateBinsAgainstDimensions(WarehouseData data)
+        {
+            Int4 dimensions = data.Dimensions;
+            BinData[] bins = data.Bins;
+            for (int i = 0; i < bins.Length; i++)
+            {
+                BinData bin = bins[i];
+                if (bin.Level < 0 || bin.Level >= dimensions.X ||
+                    bin.Column < 0 || bin.Column >= dimensions.Y ||
+                    bin.Row < 0 || bin.Row >= dimensions.Z ||
+                    bin.Depth < 0 || bin.Depth >= dimensions.W)
+                {
+                    throw new InvalidDataException(
+                        $"Bin[{i}] index out of range: ({bin.Level},{bin.Column},{bin.Row},{bin.Depth}), dimensions={dimensions}.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 运行时加载前校验维度与货位索引（供 <see cref="WarehouseBinDataStore"/> 使用）。
+        /// </summary>
+        internal static void EnsureValidWarehouseData(WarehouseData data)
+        {
+            ValidateWarehouseData(data);
         }
 
         private static int ReadInt32(byte[] buffer, int offset)

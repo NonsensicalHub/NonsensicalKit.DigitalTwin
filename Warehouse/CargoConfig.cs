@@ -25,18 +25,15 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         private List<RenderChunk> _chunks;
         private Array4<Matrix4x4> _loadTrans;
         private Array4<bool> _loadStates;
-        private Array4<float> _loadVisibilities;
         private Array4<bool> _hasBins;
         private Array4<int> _chunkIndices;
         private Matrix4x4 _ltw;
         private bool _chunkBoundsDirty = true;
         private readonly Plane[] _frustumPlanesCache = new Plane[6];
         private readonly HashSet<int> _dirtyChunkIndices = new HashSet<int>();
-        private readonly HashSet<int> _visibilityOnlyDirtyChunkIndices = new HashSet<int>();
         private bool _forceFullChunkRefresh = true;
         private readonly List<int> _chunkIndexWorkCache = new List<int>();
         private readonly List<RenderChunk> _chunkWorkCache = new List<RenderChunk>();
-        private readonly HashSet<int> _visibilityOnlyWorkCache = new HashSet<int>();
 
         private readonly object _updateLock = new object();
         private int _updateQueued;
@@ -46,7 +43,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         private float _globalVisibility = 1f;
 
         /// <summary>
-        /// 全局显隐乘数 [0,1]，经材质 <c>_DitherVisibility</c> 作用于所有实例（Dither），与格位显隐相乘。
+        /// 全局显隐乘数 [0,1]，经材质 <c>_DitherVisibility</c> 作用于所有实例（Dither）。
         /// </summary>
         public float GlobalVisibility
         {
@@ -68,7 +65,6 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             _cellCount = cellCount;
             _loadTrans = new Array4<Matrix4x4>(cellCount.X, cellCount.Y, cellCount.Z, cellCount.W);
             _loadStates = new Array4<bool>(cellCount.X, cellCount.Y, cellCount.Z, cellCount.W);
-            _loadVisibilities = new Array4<float>(cellCount.X, cellCount.Y, cellCount.Z, cellCount.W);
             _hasBins = new Array4<bool>(cellCount.X, cellCount.Y, cellCount.Z, cellCount.W);
 
             _prefab = prefab;
@@ -215,11 +211,6 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         /// </summary>
         public void SetNewState(Int4 location, Matrix4x4 trans, bool show, bool autoUpdate)
         {
-            SetNewState(location, trans, show, ResolveVisibilityForUpdate(location), autoUpdate);
-        }
-
-        public void SetNewState(Int4 location, Matrix4x4 trans, bool show, float visibility, bool autoUpdate)
-        {
             if (_released)
             {
                 return;
@@ -230,7 +221,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 return;
             }
 
-            SetNewStateCore(location, trans, show, visibility);
+            SetNewStateCore(location, trans, show);
 
             if (autoUpdate)
             {
@@ -245,13 +236,6 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         /// </summary>
         public void SetNewState(int layer, int column, int row, int depth, Matrix4x4 trans, bool show, bool autoUpdate)
         {
-            SetNewState(layer, column, row, depth, trans, show,
-                ResolveVisibilityForUpdate(layer, column, row, depth), autoUpdate);
-        }
-
-        public void SetNewState(int layer, int column, int row, int depth, Matrix4x4 trans, bool show, float visibility,
-            bool autoUpdate)
-        {
             if (_released)
             {
                 return;
@@ -262,39 +246,12 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 return;
             }
 
-            SetNewStateCore(layer, column, row, depth, trans, show, visibility);
+            SetNewStateCore(layer, column, row, depth, trans, show);
 
             if (autoUpdate)
             {
                 UpdateParts().Forget();
             }
-        }
-
-        /// <summary>
-        /// 仅更新格位显隐因子（Dither），不改变显示状态与变换。
-        /// </summary>
-        public void SetVisibility(Int4 location, float visibility, bool autoUpdate)
-        {
-            if (_released || !HasPartTemplates())
-            {
-                return;
-            }
-
-            lock (_updateLock)
-            {
-                _loadVisibilities[location] = Mathf.Clamp01(visibility);
-                MarkVisibilityOnlyDirtyChunkByLocation(location);
-            }
-
-            if (autoUpdate)
-            {
-                UpdateParts().Forget();
-            }
-        }
-
-        public void SetVisibility(int layer, int column, int row, int depth, float visibility, bool autoUpdate)
-        {
-            SetVisibility(new Int4(layer, column, row, depth), visibility, autoUpdate);
         }
 
         /// <summary>
@@ -394,17 +351,13 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                         continue;
                     }
 
-                    bool visibilityOnlyWork = IsVisibilityOnlyWork();
-                    if (!visibilityOnlyWork && !WarehousePlatformCompat.CpuInstancingBuildMustUseMainThread)
+                    if (!WarehousePlatformCompat.CpuInstancingBuildMustUseMainThread)
                     {
                         await UniTask.SwitchToThreadPool();
                     }
 
                     BuildChunkRenderInput(_chunkWorkCache);
-                    if (!visibilityOnlyWork)
-                    {
-                        await UniTask.SwitchToMainThread();
-                    }
+                    await UniTask.SwitchToMainThread();
 
                     if (_released)
                     {
@@ -418,16 +371,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                     for (int chunkIndex = 0; chunkIndex < _chunkWorkCache.Count; chunkIndex++)
                     {
                         RenderChunk chunk = _chunkWorkCache[chunkIndex];
-                        int chunkId = _chunkIndexWorkCache[chunkIndex];
-                        bool visibilityOnly = _visibilityOnlyWorkCache.Contains(chunkId);
                         foreach (var part in chunk.Parts)
                         {
-                            if (visibilityOnly &&
-                                part.TryPatchVisibilitiesOnly(chunk.Transforms, chunk.States, chunk.Visibilities, chunk.PickIds))
-                            {
-                                continue;
-                            }
-
                             _updateTasksCache[taskIndex++] =
                                 part.UpdateItems(chunk.Transforms, chunk.States, chunk.Visibilities, chunk.PickIds);
                             taskCount++;
@@ -536,9 +481,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                                         chunk.Transforms[index] = IdentityMatrix;
                                     }
                                     chunk.States[index] = hasBin && _loadStates[layer, column, row, depth];
-                                    chunk.Visibilities[index] = hasBin
-                                        ? Mathf.Clamp01(_loadVisibilities[layer, column, row, depth])
-                                        : 0f;
+                                    chunk.Visibilities[index] = hasBin ? 1f : 0f;
                                     chunk.PickIds[index] = hasBin
                                         ? WarehousePickId.Encode(layer, column, row, depth, _cellCount)
                                         : WarehousePickId.Miss;
@@ -820,52 +763,23 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             return _chunks != null && _chunks.Count > 0;
         }
 
-        private float ResolveVisibilityForUpdate(Int4 location)
-        {
-            lock (_updateLock)
-            {
-                if (!_hasBins[location])
-                {
-                    return 1f;
-                }
-
-                return Mathf.Clamp01(_loadVisibilities[location]);
-            }
-        }
-
-        private float ResolveVisibilityForUpdate(int layer, int column, int row, int depth)
-        {
-            lock (_updateLock)
-            {
-                if (!_hasBins[layer, column, row, depth])
-                {
-                    return 1f;
-                }
-
-                return Mathf.Clamp01(_loadVisibilities[layer, column, row, depth]);
-            }
-        }
-
-        private void SetNewStateCore(Int4 location, Matrix4x4 trans, bool show, float visibility)
+        private void SetNewStateCore(Int4 location, Matrix4x4 trans, bool show)
         {
             lock (_updateLock)
             {
                 _loadTrans[location] = trans;
                 _loadStates[location] = show;
-                _loadVisibilities[location] = Mathf.Clamp01(visibility);
                 _hasBins[location] = true;
                 MarkDirtyChunkByLocation(location);
             }
         }
 
-        private void SetNewStateCore(int layer, int column, int row, int depth, Matrix4x4 trans, bool show,
-            float visibility)
+        private void SetNewStateCore(int layer, int column, int row, int depth, Matrix4x4 trans, bool show)
         {
             lock (_updateLock)
             {
                 _loadTrans[layer, column, row, depth] = trans;
                 _loadStates[layer, column, row, depth] = show;
-                _loadVisibilities[layer, column, row, depth] = Mathf.Clamp01(visibility);
                 _hasBins[layer, column, row, depth] = true;
                 MarkDirtyChunkByLocation(layer, column, row, depth);
             }
@@ -904,14 +818,6 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
                 _dirtyChunkIndices.Clear();
                 _forceFullChunkRefresh = false;
-
-                _visibilityOnlyWorkCache.Clear();
-                foreach (int chunkIndex in _visibilityOnlyDirtyChunkIndices)
-                {
-                    _visibilityOnlyWorkCache.Add(chunkIndex);
-                }
-
-                _visibilityOnlyDirtyChunkIndices.Clear();
             }
 
             for (int i = 0; i < _chunkIndexWorkCache.Count; i++)
@@ -940,47 +846,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             if (chunkIndex >= 0)
             {
                 _dirtyChunkIndices.Add(chunkIndex);
-                _visibilityOnlyDirtyChunkIndices.Remove(chunkIndex);
             }
-        }
-
-        private void MarkVisibilityOnlyDirtyChunkByLocation(Int4 location)
-        {
-            MarkVisibilityOnlyDirtyChunkByLocation(location.X, location.Y, location.Z, location.W);
-        }
-
-        private void MarkVisibilityOnlyDirtyChunkByLocation(int layer, int column, int row, int depth)
-        {
-            if (_chunkIndices == null)
-            {
-                _forceFullChunkRefresh = true;
-                return;
-            }
-
-            int chunkIndex = _chunkIndices[layer, column, row, depth];
-            if (chunkIndex >= 0)
-            {
-                _dirtyChunkIndices.Add(chunkIndex);
-                _visibilityOnlyDirtyChunkIndices.Add(chunkIndex);
-            }
-        }
-
-        private bool IsVisibilityOnlyWork()
-        {
-            if (_chunkWorkCache.Count == 0)
-            {
-                return false;
-            }
-
-            for (int i = 0; i < _chunkIndexWorkCache.Count; i++)
-            {
-                if (!_visibilityOnlyWorkCache.Contains(_chunkIndexWorkCache[i]))
-                {
-                    return false;
-                }
-            }
-
-            return true;
         }
 
         private void ApplyGlobalMaterialVisibility(float visibility)

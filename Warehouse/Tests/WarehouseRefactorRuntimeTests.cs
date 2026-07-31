@@ -122,6 +122,25 @@ namespace NonsensicalKit.DigitalTwin.Warehouse.Tests
         }
         
         [Test]
+        public void WarehouseBinDataStore_SetData_WithOutOfRangeBin_ShouldFailReady()
+        {
+            Type storeType = typeof(WarehouseData).Assembly.GetType(
+                "NonsensicalKit.DigitalTwin.Warehouse.WarehouseBinDataStore",
+                true);
+            object store = Activator.CreateInstance(storeType, true);
+
+            var bins = new[]
+            {
+                new BinData { Level = 0, Column = 0, Row = 0, Depth = 0 },
+                new BinData { Level = 9, Column = 0, Row = 0, Depth = 0 }
+            };
+            var data = new WarehouseData(bins, new Int4(1, 1, 1, 1));
+
+            InvokeInstance(storeType, store, "SetData", data);
+            Assert.IsFalse((bool)GetProperty(storeType, store, "IsReady"));
+        }
+
+        [Test]
         public void WarehouseDataCreate_ShouldInferDimensions()
         {
             var bins = new[]

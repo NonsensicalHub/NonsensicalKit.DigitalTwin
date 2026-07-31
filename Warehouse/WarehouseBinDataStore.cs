@@ -35,36 +35,78 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         public async UniTask<bool> LoadAsync(string warehouseName)
         {
-            var data = await BinDataIO.LoadFromStreamingAssetsAsync($"Warehouse/{warehouseName}.dat");
-            if (data == null)
+            try
             {
-                Debug.LogError($"[Warehouse] 读取仓库数据失败: {warehouseName}");
-                IsReady = false;
-                _binData = default;
+                var data = await BinDataIO.LoadFromStreamingAssetsAsync($"Warehouse/{warehouseName}.dat");
+                if (data == null)
+                {
+                    Debug.LogError($"[Warehouse] 读取仓库数据失败: {warehouseName}");
+                    Clear();
+                    return false;
+                }
+
+                if (!TrySetData(data, out string error))
+                {
+                    Debug.LogError($"[Warehouse] 读取仓库数据失败: {warehouseName}。{error}");
+                    return false;
+                }
+
+                Debug.Log($"{warehouseName}尺寸为层{LayerCount}，列{ColumnCount}，行{RowCount}，深{DepthCount}");
+                return true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[Warehouse] 读取仓库数据失败: {warehouseName}\n{e}");
+                Clear();
                 return false;
             }
-
-            SetData(data);
-            Debug.Log($"{warehouseName}尺寸为层{LayerCount}，列{ColumnCount}，行{RowCount}，深{DepthCount}");
-            return true;
         }
 
         internal void SetData(WarehouseData data)
         {
+            TrySetData(data, out _);
+        }
+
+        internal bool TrySetData(WarehouseData data, out string error)
+        {
+            error = null;
             if (data == null)
             {
-                IsReady = false;
-                _binData = default;
-                return;
+                Clear();
+                return false;
+            }
+
+            try
+            {
+                BinDataIO.EnsureValidWarehouseData(data);
+            }
+            catch (Exception e)
+            {
+                error = e.Message;
+                Clear();
+                return false;
             }
 
             _binData = new Array4<RuntimeBinData>(data.Dimensions);
             foreach (var bin in data.Bins)
             {
-                _binData[bin.Level, bin.Column, bin.Row, bin.Depth] = new RuntimeBinData(bin.PosX, bin.PosY, bin.PosZ, _defaultShowCargo);
+                // EnsureValidWarehouseData 已校验范围；SafeSet 作为防御性兜底。
+                _binData.SafeSet(
+                    bin.Level,
+                    bin.Column,
+                    bin.Row,
+                    bin.Depth,
+                    new RuntimeBinData(bin.PosX, bin.PosY, bin.PosZ, _defaultShowCargo));
             }
 
             IsReady = true;
+            return true;
+        }
+
+        private void Clear()
+        {
+            IsReady = false;
+            _binData = default;
         }
 
         public bool TryGet(Int4 location, out RuntimeBinData binData)

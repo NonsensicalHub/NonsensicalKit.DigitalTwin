@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using NaughtyAttributes;
 using NonsensicalKit.Core;
@@ -46,7 +47,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         public WarehouseGpuPickDebugInfo LastGpuPickDebugInfo => _gpuPicker?.LastDebugInfo ?? WarehouseGpuPickDebugInfo.Empty("gpu picking disabled");
 
         /// <summary>
-        /// 全仓库货物实例的全局显隐乘数 [0,1]（材质 <c>_DitherVisibility</c>，与各格位显隐相乘）。
+        /// 全仓库货物实例的全局显隐乘数 [0,1]（材质 <c>_DitherVisibility</c>）。
         /// </summary>
         public float GlobalCargoVisibility => _globalCargoVisibility;
 
@@ -60,6 +61,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         private WarehouseGpuPicker _gpuPicker;
         private WarehouseHighlightController _highlightController;
         private bool _destroying;
+        private CancellationTokenSource _initCts;
 
         private static WarehouseGpuPicker s_sharedGpuPicker;
         private static readonly HashSet<WarehouseManager> s_sharedGpuManagers = new HashSet<WarehouseManager>();
@@ -100,7 +102,9 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             }
 
             if (m_autoInit)
-                Init().Forget();
+            {
+                Init(BeginInitToken()).Forget();
+            }
         }
 
         private void Update()
@@ -156,15 +160,20 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         {
             base.OnDestroy();
             _destroying = true;
+            CancelInit();
             _updateScheduler.ClearPending();
             ReleaseGpuPicker();
-            if (!HasCargoConfigs()) return;
-            foreach (var item in _cargoConfigs) item?.Release();
+            ReleaseCargoConfigs();
         }
 
         public void HandleInit()
         {
-            Init().Forget();
+            if (_destroying)
+            {
+                return;
+            }
+
+            Init(BeginInitToken()).Forget();
         }
 
         /// <summary>
@@ -247,7 +256,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             _binDataStore.ApplyToColumn(columnIndex, (cellLocation, binData) =>
             {
                 Matrix4x4 matrix = Matrix4x4.TRS(binData.Pos + offset, rotation, Vector3.one);
-                ApplyToConfigs(cellLocation, matrix, binData.ShowCargo, binData.Visibility);
+                ApplyToConfigs(cellLocation, matrix, binData.ShowCargo);
             });
 
             RequestConfigUpdate();
@@ -260,7 +269,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             _binDataStore.ApplyToColumn(columnIndex, (cellLocation, binData) =>
             {
                 Matrix4x4 matrix = Matrix4x4.TRS(binData.Pos, rotation, Vector3.one);
-                ApplyToConfigs(cellLocation, matrix, state && binData.ShowCargo, binData.Visibility);
+                ApplyToConfigs(cellLocation, matrix, state && binData.ShowCargo);
             });
 
             RequestConfigUpdate();
@@ -283,7 +292,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             binData.Pos = cellPos;
             binData.CachedMatrix = matrix;
             binData.HasCachedMatrix = true;
-            ApplyToConfigs(cellLocation, matrix, binData.ShowCargo, binData.Visibility);
+            ApplyToConfigs(cellLocation, matrix, binData.ShowCargo);
 
             if (autoUpdate) RequestConfigUpdate();
         }
@@ -306,7 +315,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             Matrix4x4 matrix = ResolveCargoStateMatrix(binData, show);
 
             binData.ShowCargo = show;
-            ApplyToConfigs(cellLocation, matrix, show, binData.Visibility);
+            ApplyToConfigs(cellLocation, matrix, show);
 
             if (autoUpdate) RequestConfigUpdate();
         }
@@ -327,7 +336,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 var cellLocation = new Int4(layer, column, row, depth);
                 Matrix4x4 matrix = ResolveCargoStateMatrix(binData, show);
                 binData.ShowCargo = show;
-                ApplyToConfigs(cellLocation, matrix, show, binData.Visibility);
+                ApplyToConfigs(cellLocation, matrix, show);
             });
 
             if (autoUpdate) RequestConfigUpdate();
@@ -342,44 +351,8 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             SetAllCargoState(false, autoUpdate);
         }
 
-        public void SetCargoVisibility(Int4 cellLocation, float visibility, bool autoUpdate = true)
-        {
-            if (!HasCargoConfigs() || !_binDataStore.TryGet(cellLocation, out RuntimeBinData binData))
-            {
-                return;
-            }
-
-            float clampedVisibility = Mathf.Clamp01(visibility);
-            if (Mathf.Approximately(binData.Visibility, clampedVisibility))
-            {
-                return;
-            }
-
-            binData.Visibility = clampedVisibility;
-            for (int i = 0; i < _cargoConfigs.Length; i++)
-            {
-                _cargoConfigs[i]?.SetVisibility(cellLocation, clampedVisibility, false);
-            }
-
-            if (autoUpdate)
-            {
-                RequestConfigUpdate(immediate: true);
-            }
-        }
-
-        public void SetCargoVisibility(Int4[] cellsLocation, float[] visibilities, bool autoUpdate = false)
-        {
-            ApplyBatchCargoState(
-                cellsLocation,
-                visibilities,
-                "[Warehouse] 批量显隐更新参数无效，已忽略。",
-                (location, value) => SetCargoVisibility(location, value, false),
-                autoUpdate);
-        }
-
         /// <summary>
         /// 全局控制所有货物 GPU 实例的显隐（材质 <c>_DitherVisibility</c>，当帧生效，无分块重建）。
-        /// 不影响各格位 <see cref="RuntimeBinData.Visibility"/> 存储值。
         /// </summary>
         /// <param name="visibility">0 全隐，1 全显，中间值为稀疏显示。</param>
         public void SetGlobalCargoVisibility(float visibility, bool autoUpdate = true)
@@ -642,11 +615,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             if (autoUpdate) RequestConfigUpdate();
         }
 
-        private void ApplyToConfigs(Int4 cellLocation, Matrix4x4 matrix, bool show, float visibility)
+        private void ApplyToConfigs(Int4 cellLocation, Matrix4x4 matrix, bool show)
         {
             for (int i = 0; i < _cargoConfigs.Length; i++)
             {
-                _cargoConfigs[i]?.SetNewState(cellLocation, matrix, show, visibility, false);
+                _cargoConfigs[i]?.SetNewState(cellLocation, matrix, show, false);
             }
         }
 
@@ -668,14 +641,33 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             return matrix;
         }
 
-        private async UniTaskVoid Init()
+        private async UniTaskVoid Init(CancellationToken cancellationToken)
         {
-            if (_inited) return;
-            bool loaded = await ReadDataFile();
-            if (!loaded) return;
-            await InitCargo();
+            if (_inited || _destroying)
+            {
+                return;
+            }
 
-            Subscribe();
+            try
+            {
+                bool loaded = await ReadDataFile(cancellationToken);
+                if (!loaded || ShouldAbortInit(cancellationToken))
+                {
+                    return;
+                }
+
+                bool cargoReady = await InitCargo(cancellationToken);
+                if (!cargoReady || ShouldAbortInit(cancellationToken))
+                {
+                    return;
+                }
+
+                Subscribe();
+            }
+            catch (OperationCanceledException)
+            {
+                ReleaseCargoConfigs();
+            }
         }
 
         private void Subscribe()
@@ -687,16 +679,23 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             Subscribe("HideHighlightBin", m_warehouseName, HideHighlightBin);
         }
 
-
-        private async UniTask<bool> ReadDataFile()
+        private async UniTask<bool> ReadDataFile(CancellationToken cancellationToken)
         {
-            return await _binDataStore.LoadAsync(m_warehouseName);
+            bool loaded = await _binDataStore.LoadAsync(m_warehouseName)
+                .AttachExternalCancellation(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            return loaded;
         }
 
-        private async UniTask InitCargo()
+        private async UniTask<bool> InitCargo(CancellationToken cancellationToken)
         {
             try
             {
+                if (ShouldAbortInit(cancellationToken))
+                {
+                    return false;
+                }
+
                 var initializer = new WarehouseCargoInitializer(
                     _binDataStore,
                     m_cargoPrefabs,
@@ -705,28 +704,110 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 if (!initializer.ValidateInputs(out string error))
                 {
                     Debug.LogError(error);
-                    return;
+                    return false;
                 }
 
                 _ltwMatrix = transform.localToWorldMatrix;
                 _cargoConfigs = initializer.CreateConfigs(_ltwMatrix);
+                if (ShouldAbortInit(cancellationToken))
+                {
+                    ReleaseCargoConfigs();
+                    return false;
+                }
+
+                // 捕获本地引用，避免 OnDestroy 清空字段后线程池读到 null。
+                CargoConfig[] configs = _cargoConfigs;
                 Quaternion initRotation = transform.rotation;
                 if (WarehousePlatformCompat.CpuInstancingBuildMustUseMainThread)
                 {
-                    initializer.BuildInitialStates(_cargoConfigs, initRotation);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    initializer.BuildInitialStates(configs, initRotation);
                 }
                 else
                 {
-                    await UniTask.RunOnThreadPool(() => initializer.BuildInitialStates(_cargoConfigs, initRotation));
+                    await UniTask.RunOnThreadPool(
+                        () => initializer.BuildInitialStates(configs, initRotation),
+                        cancellationToken: cancellationToken);
                 }
 
-                foreach (var item in _cargoConfigs) item?.UpdateParts().Forget();
-                await UniTask.SwitchToMainThread();
+                if (ShouldAbortInit(cancellationToken))
+                {
+                    ReleaseCargoConfigs();
+                    return false;
+                }
+
+                foreach (var item in configs)
+                {
+                    item?.UpdateParts().Forget();
+                }
+
+                await UniTask.SwitchToMainThread(cancellationToken);
+                if (ShouldAbortInit(cancellationToken))
+                {
+                    ReleaseCargoConfigs();
+                    return false;
+                }
+
                 _inited = true;
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                ReleaseCargoConfigs();
+                throw;
             }
             catch (Exception e)
             {
+                ReleaseCargoConfigs();
                 Debug.LogError($"GPU实例模型初始化异常: {e}");
+                return false;
+            }
+        }
+
+        private CancellationToken BeginInitToken()
+        {
+            CancelInit();
+            _initCts = new CancellationTokenSource();
+            return _initCts.Token;
+        }
+
+        private void CancelInit()
+        {
+            if (_initCts == null)
+            {
+                return;
+            }
+
+            try
+            {
+                _initCts.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
+            _initCts.Dispose();
+            _initCts = null;
+        }
+
+        private bool ShouldAbortInit(CancellationToken cancellationToken)
+        {
+            return _destroying || cancellationToken.IsCancellationRequested;
+        }
+
+        private void ReleaseCargoConfigs()
+        {
+            if (_cargoConfigs == null)
+            {
+                return;
+            }
+
+            CargoConfig[] configs = _cargoConfigs;
+            _cargoConfigs = null;
+            _inited = false;
+            foreach (var item in configs)
+            {
+                item?.Release();
             }
         }
 
