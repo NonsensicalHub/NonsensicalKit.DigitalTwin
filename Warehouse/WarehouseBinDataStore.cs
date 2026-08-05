@@ -90,16 +90,35 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             _binData = new Array4<RuntimeBinData>(data.Dimensions);
             foreach (var bin in data.Bins)
             {
+                bool slotEnabled = !WarehouseSlotDisableRule.MatchesAny(
+                    data.SlotDisableRules,
+                    bin.Level,
+                    bin.Column,
+                    bin.Row,
+                    bin.Depth);
                 // EnsureValidWarehouseData 已校验范围；SafeSet 作为防御性兜底。
                 _binData.SafeSet(
                     bin.Level,
                     bin.Column,
                     bin.Row,
                     bin.Depth,
-                    new RuntimeBinData(bin.PosX, bin.PosY, bin.PosZ, _defaultShowCargo));
+                    new RuntimeBinData(bin.PosX, bin.PosY, bin.PosZ, _defaultShowCargo, slotEnabled));
             }
 
             IsReady = true;
+            if (data.SlotDisableRules != null && data.SlotDisableRules.Length > 0)
+            {
+                int disabled = 0;
+                ForEachBin((_, __, ___, ____, binData) =>
+                {
+                    if (binData != null && !binData.SlotEnabled)
+                    {
+                        disabled++;
+                    }
+                });
+                Debug.Log($"[Warehouse] 已应用 {data.SlotDisableRules.Length} 条禁用规则，禁用货位 {disabled} 个");
+            }
+
             return true;
         }
 

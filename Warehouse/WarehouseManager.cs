@@ -37,6 +37,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         public bool Inited => _inited;
 
+        /// <summary>
+        /// 当前已加载仓位尺寸（层 X、列 Y、排 Z、深 W）。未就绪时为 0。
+        /// </summary>
+        public Int4 RuntimeBinSize => _binDataStore.IsReady ? _binDataStore.Size : new Int4(0, 0, 0, 0);
+
         /// <summary>最近一次 GPU Picking 的调试 RT 预览（需开启 <see cref="EnableGpuPicking"/> 和 <see cref="DebugGpuPicking"/>）。</summary>
         public Texture2D LastGpuPickPreview => _gpuPicker?.LastPickPreview;
 
@@ -307,9 +312,62 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 autoUpdate);
         }
 
+        /// <summary>
+        /// 批量写入结构启用状态与显示状态（布局编辑器 / 规则热更新用）。
+        /// </summary>
+        public void ApplyStructuralAndShowStates(
+            Int4[] cellsLocation,
+            bool[] slotEnabled,
+            bool[] show,
+            bool autoUpdate = true)
+        {
+            if (!HasCargoConfigs())
+            {
+                return;
+            }
+
+            if (cellsLocation == null || slotEnabled == null || show == null ||
+                cellsLocation.Length == 0 ||
+                cellsLocation.Length != slotEnabled.Length ||
+                cellsLocation.Length != show.Length)
+            {
+                Debug.LogWarning("[Warehouse] 结构/显示批量更新参数无效，已忽略。");
+                return;
+            }
+
+            for (int i = 0; i < cellsLocation.Length; i++)
+            {
+                if (!_binDataStore.TryGet(cellsLocation[i], out RuntimeBinData binData))
+                {
+                    continue;
+                }
+
+                binData.SlotEnabled = slotEnabled[i];
+                bool effectiveShow = slotEnabled[i] && show[i];
+                if (binData.ShowCargo == effectiveShow)
+                {
+                    continue;
+                }
+
+                Matrix4x4 matrix = ResolveCargoStateMatrix(binData, effectiveShow);
+                binData.ShowCargo = effectiveShow;
+                ApplyToConfigs(cellsLocation[i], matrix, effectiveShow);
+            }
+
+            if (autoUpdate)
+            {
+                RequestConfigUpdate();
+            }
+        }
+
         public void SetCargoState(Int4 cellLocation, bool show, bool autoUpdate = true)
         {
             if (!HasCargoConfigs() || !_binDataStore.TryGet(cellLocation, out RuntimeBinData binData)) return;
+            if (!binData.SlotEnabled)
+            {
+                show = false;
+            }
+
             if (binData.ShowCargo == show) return;
 
             Matrix4x4 matrix = ResolveCargoStateMatrix(binData, show);
@@ -331,12 +389,13 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
             _binDataStore.ForEachBin((layer, column, row, depth, binData) =>
             {
-                if (binData.ShowCargo == show) return;
+                bool effectiveShow = show && binData.SlotEnabled;
+                if (binData.ShowCargo == effectiveShow) return;
 
                 var cellLocation = new Int4(layer, column, row, depth);
-                Matrix4x4 matrix = ResolveCargoStateMatrix(binData, show);
-                binData.ShowCargo = show;
-                ApplyToConfigs(cellLocation, matrix, show);
+                Matrix4x4 matrix = ResolveCargoStateMatrix(binData, effectiveShow);
+                binData.ShowCargo = effectiveShow;
+                ApplyToConfigs(cellLocation, matrix, effectiveShow);
             });
 
             if (autoUpdate) RequestConfigUpdate();

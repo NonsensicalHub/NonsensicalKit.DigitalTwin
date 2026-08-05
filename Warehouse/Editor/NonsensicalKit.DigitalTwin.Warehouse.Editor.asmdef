@@ -1,0 +1,18 @@
+{
+    "name": "NonsensicalKit.DigitalTwin.Warehouse.Editor",
+    "rootNamespace": "",
+    "references": [
+        "NonsensicalKit.DigitalTwin.Warehouse"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
