@@ -1,7 +1,6 @@
 using UnityEngine;
 #if UNITY_EDITOR
 using System;
-using System.Collections.Generic;
 using System.IO;
 using NonsensicalKit.Core;
 using NonsensicalKit.DigitalTwin.Warehouse;
@@ -9,12 +8,13 @@ using NonsensicalKit.DigitalTwin.Warehouse;
 /// <summary>
 /// WarehouseManager 外挂：运行时直观调货位布局并写回 .dat。
 /// 仅 Editor 编译；调完删掉本组件即可，不进正式流程。
-/// 坐标约定：PosX=排(Row)，PosY=层(Layer)，PosZ=列(Column)；
-/// 深度方向按模式配置，最终位置 = 基准点 + 列深度方向 × Depth（Depth=0 在基准点）。
+/// 世界坐标 = Origin + 排标量×排方向 + 层标量×层方向 + 列标量×列方向；
+/// 深度 Depth 是索引维度（堆垛机等据此判断叉子伸出距离），不参与世界坐标计算——
+/// 同排/层/列下各 Depth 共用同一基准点。深度方向仅写入 .dat 供设备使用。
 /// 专注模式：
 /// - 切片：只显示某一层/列/排；
 /// - 整轴：固定另外两轴（如层专注固定某一排×某一列），显示目标轴全部档位，便于一次配完。
-/// 轴操作：翻转索引（坐标集合不变）、单轴/三轴整体平移。
+/// 轴操作：翻转索引（坐标集合不变）、单轴标量平移、原点世界平移。
 /// 禁用规则：按排/列/层/深范围禁用结构空洞货位。
 /// </summary>
 [DisallowMultipleComponent]
@@ -76,28 +76,40 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
     private string m_warehouseFileName = "StackerWarehouse";
 
     [Header("轴坐标（与货架对齐）")]
-    [SerializeField]
+    [SerializeField, Tooltip("布局原点。世界坐标 = Origin + 各轴标量 × 对应方向。")]
+    private Vector3 m_layoutOrigin;
+
+    [SerializeField, Tooltip("排方向（世界空间，不强制归一化；负向量即反向）。")]
+    private Vector3 m_rowDirection = Vector3.right;
+
+    [SerializeField, Tooltip("层方向（世界空间，不强制归一化；负向量即反向）。")]
+    private Vector3 m_layerDirection = Vector3.up;
+
+    [SerializeField, Tooltip("列方向（世界空间，不强制归一化；负向量即反向）。")]
+    private Vector3 m_columnDirection = Vector3.forward;
+
+    [SerializeField, Tooltip("沿排方向的标量档位。")]
     private float[] m_posRow = Array.Empty<float>();
 
-    [SerializeField]
+    [SerializeField, Tooltip("沿层方向的标量档位。")]
     private float[] m_posLayer = Array.Empty<float>();
 
-    [SerializeField]
+    [SerializeField, Tooltip("沿列方向的标量档位。")]
     private float[] m_posColumn = Array.Empty<float>();
 
-    [SerializeField, Min(1)]
+    [SerializeField, Min(1), Tooltip("深度档位数（索引维度）。不改变货位世界坐标，供堆垛机等设备使用。")]
     private int m_depthCount = 1;
 
-    [SerializeField, Tooltip("详细配置：每列单独方向；奇偶模式：偶数列/奇数列各共用一个方向。")]
+    [SerializeField, Tooltip("详细配置：每列单独方向；奇偶模式：偶数列/奇数列各共用一个方向。仅写入 .dat，不参与坐标计算。")]
     private DepthDirectionMode m_depthDirectionMode = DepthDirectionMode.Detailed;
 
-    [SerializeField, Tooltip("每列一个 Vector3：该列 Depth 每 +1 时的世界坐标偏移。长度应与列数一致。Depth=0 不加偏移。")]
+    [SerializeField, Tooltip("每列一个 Vector3：该列叉伸/取货深度方向（设备用）。长度应与列数一致。不参与货位世界坐标。")]
     private Vector3[] m_depthDirection = Array.Empty<Vector3>();
 
-    [SerializeField, Tooltip("Column 索引为偶数（0,2,4…）时共用。Depth 每 +1 的偏移。")]
+    [SerializeField, Tooltip("Column 索引为偶数（0,2,4…）时共用的深度方向（设备用，不参与坐标）。")]
     private Vector3 m_evenColumnDepthDirection;
 
-    [SerializeField, Tooltip("Column 索引为奇数（1,3,5…）时共用。Depth 每 +1 的偏移。")]
+    [SerializeField, Tooltip("Column 索引为奇数（1,3,5…）时共用的深度方向（设备用，不参与坐标）。")]
     private Vector3 m_oddColumnDepthDirection;
 
     [Header("运行时刷新")]
@@ -134,16 +146,16 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
     private WarehouseSlotDisableRule[] m_disableRules = Array.Empty<WarehouseSlotDisableRule>();
 
     [Header("均匀生成辅助")]
-    [SerializeField]
+    [SerializeField, Tooltip("生成时写入布局原点。")]
     private Vector3 m_uniformOrigin;
 
-    [SerializeField]
+    [SerializeField, Tooltip("各轴标量间距（排/层/列）。可为负以实现反向。")]
     private Vector3 m_uniformSpacing = Vector3.one;
 
     [SerializeField]
     private Vector3Int m_uniformCount = new Vector3Int(1, 1, 1);
 
-    [SerializeField, Tooltip("生成轴或补齐列深度方向时使用（详细配置模式）")]
+    [SerializeField, Tooltip("生成轴或补齐列深度方向时使用（详细配置模式；仅设备元数据）")]
     private Vector3 m_defaultDepthDirection;
 
     public int RowCount => m_posRow?.Length ?? 0;
@@ -176,10 +188,10 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
     [SerializeField, Tooltip("翻转 / 单轴平移作用于此轴。")]
     private AxisOpTarget m_axisOpTarget = AxisOpTarget.Layer;
 
-    [SerializeField, Tooltip("对该轴所有坐标统一加上此值（排=X，层=Y，列=Z）。")]
+    [SerializeField, Tooltip("对该轴所有标量统一加上此值。")]
     private float m_axisTranslateDelta;
 
-    [SerializeField, Tooltip("一次性对排/层/列分别偏移：X=排，Y=层，Z=列。")]
+    [SerializeField, Tooltip("将布局原点按世界 XYZ 平移。")]
     private Vector3 m_offset;
 
     [Header("Gizmo")]
@@ -217,15 +229,20 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
         {
             m_warehouseManager = GetComponentInParent<WarehouseManager>();
         }
+
+        ApplyDefaultAxisDirections();
     }
 
     private void OnEnable()
     {
+        EnsureAxisDirectionsValid();
         TryAutoDisableGizmosIfOversize();
     }
 
     private void OnValidate()
     {
+        EnsureAxisDirectionsValid();
+
         if (m_depthCount < 1)
         {
             m_depthCount = 1;
@@ -246,6 +263,25 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
         // 不在 OnValidate 里直接 Apply，避免拖参时同步重建；交给 LateUpdate 防抖。
         MarkLayoutDirty();
         MarkVisibilityDirty();
+    }
+
+    private void EnsureAxisDirectionsValid()
+    {
+        // 旧组件升级后新字段默认为零，会导致坐标塌缩；自动回落到世界正轴。
+        if (m_rowDirection == Vector3.zero)
+        {
+            m_rowDirection = Vector3.right;
+        }
+
+        if (m_layerDirection == Vector3.zero)
+        {
+            m_layerDirection = Vector3.up;
+        }
+
+        if (m_columnDirection == Vector3.zero)
+        {
+            m_columnDirection = Vector3.forward;
+        }
     }
 
     private void LateUpdate()
@@ -320,8 +356,23 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
         try
         {
             WarehouseData data = BinDataIO.LoadSync(DatFullPath);
+
+            if (data.LayoutAxisConfig != null)
+            {
+                ApplyLayoutAxisConfig(data.LayoutAxisConfig);
+            }
+            else
+            {
+                ApplyDefaultAxisDirections();
+                m_layoutOrigin = Vector3.zero;
+            }
+
             if (!TryExtractAxes(
                     data.Bins,
+                    m_layoutOrigin,
+                    m_rowDirection,
+                    m_layerDirection,
+                    m_columnDirection,
                     out float[] rows,
                     out float[] layers,
                     out float[] columns,
@@ -360,7 +411,8 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
             int disableCount = CountActiveDisableRules();
             Debug.Log(
                 $"[WarehouseLayoutEditor] 已加载 {DatRelativePath}：排{rows.Length} 层{layers.Length} 列{columns.Length} 深{depthCount}，模式={m_depthDirectionMode}" +
-                (data.LayoutDepthConfig != null ? "（来自文件深度配置）" : "（由坐标推断）") +
+                (data.LayoutAxisConfig != null ? "，轴配置来自文件" : "，轴配置用默认正轴") +
+                (data.LayoutDepthConfig != null ? "，深度配置来自文件" : "，无扩展深度配置") +
                 $"，禁用规则 {disableCount} 条",
                 this);
 
@@ -468,9 +520,10 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
             }
 
             WarehouseLayoutDepthConfig depthConfig = BuildLayoutDepthConfig();
-            BinDataIO.SaveSync(bins, DatFullPath, depthConfig, m_disableRules);
+            WarehouseLayoutAxisConfig axisConfig = BuildLayoutAxisConfig();
+            BinDataIO.SaveSync(bins, DatFullPath, depthConfig, m_disableRules, axisConfig);
             Debug.Log(
-                $"[WarehouseLayoutEditor] 已保存 {bins.Length} 个货位 + 深度配置({m_depthDirectionMode}) + 禁用规则{CountActiveDisableRules()}条 → {DatFullPath}",
+                $"[WarehouseLayoutEditor] 已保存 {bins.Length} 个货位 + 轴配置 + 深度配置({m_depthDirectionMode}) + 禁用规则{CountActiveDisableRules()}条 → {DatFullPath}",
                 this);
         }
         catch (Exception e)
@@ -485,23 +538,24 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
         int layerCount = Mathf.Max(1, m_uniformCount.y);
         int columnCount = Mathf.Max(1, m_uniformCount.z);
 
+        m_layoutOrigin = m_uniformOrigin;
         m_posRow = new float[rowCount];
         m_posLayer = new float[layerCount];
         m_posColumn = new float[columnCount];
 
         for (int i = 0; i < rowCount; i++)
         {
-            m_posRow[i] = m_uniformOrigin.x + i * m_uniformSpacing.x;
+            m_posRow[i] = i * m_uniformSpacing.x;
         }
 
         for (int i = 0; i < layerCount; i++)
         {
-            m_posLayer[i] = m_uniformOrigin.y + i * m_uniformSpacing.y;
+            m_posLayer[i] = i * m_uniformSpacing.y;
         }
 
         for (int i = 0; i < columnCount; i++)
         {
-            m_posColumn[i] = m_uniformOrigin.z + i * m_uniformSpacing.z;
+            m_posColumn[i] = i * m_uniformSpacing.z;
         }
 
         if (IsDetailedDepthMode)
@@ -516,7 +570,7 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
         MarkLayoutDirty();
         TryAutoDisableGizmosIfOversize();
         Debug.Log(
-            $"[WarehouseLayoutEditor] 已生成均匀轴：排{rowCount} 层{layerCount} 列{columnCount}，深度模式={m_depthDirectionMode}",
+            $"[WarehouseLayoutEditor] 已生成均匀轴：排{rowCount} 层{layerCount} 列{columnCount}，原点={m_layoutOrigin}，深度模式={m_depthDirectionMode}",
             this);
 
         if (Application.isPlaying && m_autoApplyAtRuntime)
@@ -632,12 +686,16 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
 
     public void ApplyOffsetToAxes()
     {
-        OffsetArray(m_posRow, m_offset.x);
-        OffsetArray(m_posLayer, m_offset.y);
-        OffsetArray(m_posColumn, m_offset.z);
+        if (m_offset == Vector3.zero)
+        {
+            Debug.LogWarning("[WarehouseLayoutEditor] 原点平移量为 0，已跳过。", this);
+            return;
+        }
+
+        m_layoutOrigin += m_offset;
         MarkLayoutDirty();
 
-        Debug.Log($"[WarehouseLayoutEditor] 轴坐标已偏移 {m_offset}", this);
+        Debug.Log($"[WarehouseLayoutEditor] 布局原点已平移 {m_offset} → {m_layoutOrigin}", this);
 
         if (Application.isPlaying && m_autoApplyAtRuntime)
         {
@@ -653,15 +711,10 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
             m_depthDirection[i] = m_defaultDepthDirection;
         }
 
-        MarkLayoutDirty();
+        // 深度方向不参与坐标计算，无需刷新货位位置。
         Debug.Log(
-            $"[WarehouseLayoutEditor] 已将 {m_depthDirection.Length} 列深度方向设为 {m_defaultDepthDirection}",
+            $"[WarehouseLayoutEditor] 已将 {m_depthDirection.Length} 列深度方向设为 {m_defaultDepthDirection}（仅元数据，坐标不变）",
             this);
-
-        if (Application.isPlaying && m_autoApplyAtRuntime)
-        {
-            ApplyToRuntime();
-        }
     }
 
     public void FocusPrevious()
@@ -1159,13 +1212,12 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
         {
             for (int column = 0; column < m_posColumn.Length; column++)
             {
-                Vector3 depthStep = GetDepthDirection(column);
                 for (int level = 0; level < m_posLayer.Length; level++)
                 {
-                    var basePos = new Vector3(m_posRow[row], m_posLayer[level], m_posColumn[column]);
+                    // 深度仅作索引；同排/层/列各 Depth 共用同一世界坐标。
+                    Vector3 pos = ComposeWorldPosition(m_posRow[row], m_posLayer[level], m_posColumn[column]);
                     for (int depth = 0; depth < m_depthCount; depth++)
                     {
-                        Vector3 pos = basePos + depthStep * depth;
                         bins[index++] = new BinData
                         {
                             Row = row,
@@ -1184,8 +1236,20 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
         return true;
     }
 
+    private Vector3 ComposeWorldPosition(float rowScalar, float layerScalar, float columnScalar)
+    {
+        return m_layoutOrigin
+               + m_rowDirection * rowScalar
+               + m_layerDirection * layerScalar
+               + m_columnDirection * columnScalar;
+    }
+
     private static bool TryExtractAxes(
         BinData[] bins,
+        Vector3 origin,
+        Vector3 rowDirection,
+        Vector3 layerDirection,
+        Vector3 columnDirection,
         out float[] rows,
         out float[] layers,
         out float[] columns,
@@ -1217,69 +1281,40 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
         bool[] rowFilled = new bool[rowCount];
         bool[] layerFilled = new bool[layerCount];
         bool[] columnFilled = new bool[columnCount];
-        bool[] depthDirFilled = new bool[columnCount];
 
-        // Depth=0 基准位：key = row/column/level 打包，供 Depth=1 差分解深度方向（O(n)）。
-        var depth0Positions = depthCount > 1
-            ? new Dictionary<long, Vector3>(bins.Length)
-            : null;
-
+        // 深度不参与坐标，各 Depth 位置相同；按轴方向把世界坐标反解为标量。
         for (int i = 0; i < bins.Length; i++)
         {
             BinData bin = bins[i];
-            if (bin.Depth != 0)
+            if (!TryDecomposeWorldPosition(
+                    new Vector3(bin.PosX, bin.PosY, bin.PosZ),
+                    origin,
+                    rowDirection,
+                    layerDirection,
+                    columnDirection,
+                    out float rowScalar,
+                    out float layerScalar,
+                    out float columnScalar))
             {
-                continue;
+                return false;
             }
 
             if ((uint)bin.Row < (uint)rowCount && !rowFilled[bin.Row])
             {
-                rows[bin.Row] = bin.PosX;
+                rows[bin.Row] = rowScalar;
                 rowFilled[bin.Row] = true;
             }
 
             if ((uint)bin.Level < (uint)layerCount && !layerFilled[bin.Level])
             {
-                layers[bin.Level] = bin.PosY;
+                layers[bin.Level] = layerScalar;
                 layerFilled[bin.Level] = true;
             }
 
             if ((uint)bin.Column < (uint)columnCount && !columnFilled[bin.Column])
             {
-                columns[bin.Column] = bin.PosZ;
+                columns[bin.Column] = columnScalar;
                 columnFilled[bin.Column] = true;
-            }
-
-            if (depth0Positions != null &&
-                (uint)bin.Row < (uint)rowCount &&
-                (uint)bin.Column < (uint)columnCount &&
-                (uint)bin.Level < (uint)layerCount)
-            {
-                depth0Positions[PackBinKey(bin.Row, bin.Column, bin.Level)] =
-                    new Vector3(bin.PosX, bin.PosY, bin.PosZ);
-            }
-        }
-
-        if (depthCount > 1 && depth0Positions != null)
-        {
-            for (int i = 0; i < bins.Length; i++)
-            {
-                BinData deep = bins[i];
-                if (deep.Depth != 1 || (uint)deep.Column >= (uint)columnCount || depthDirFilled[deep.Column])
-                {
-                    continue;
-                }
-
-                if (!depth0Positions.TryGetValue(PackBinKey(deep.Row, deep.Column, deep.Level), out Vector3 basePos))
-                {
-                    continue;
-                }
-
-                depthDirections[deep.Column] = new Vector3(
-                    deep.PosX - basePos.x,
-                    deep.PosY - basePos.y,
-                    deep.PosZ - basePos.z);
-                depthDirFilled[deep.Column] = true;
             }
         }
 
@@ -1301,9 +1336,59 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
         return true;
     }
 
-    private static long PackBinKey(int row, int column, int level)
+    /// <summary>
+    /// 解 pos = origin + r·rowDir + l·layerDir + c·colDir（3×3 线性方程组）。
+    /// </summary>
+    private static bool TryDecomposeWorldPosition(
+        Vector3 worldPos,
+        Vector3 origin,
+        Vector3 rowDirection,
+        Vector3 layerDirection,
+        Vector3 columnDirection,
+        out float rowScalar,
+        out float layerScalar,
+        out float columnScalar)
     {
-        return ((long)(uint)row << 42) | ((long)(uint)column << 21) | (uint)level;
+        rowScalar = 0f;
+        layerScalar = 0f;
+        columnScalar = 0f;
+
+        Vector3 delta = worldPos - origin;
+        // 列向量为三轴方向的矩阵 M，解 M · (r,l,c) = delta
+        float a11 = rowDirection.x;
+        float a12 = layerDirection.x;
+        float a13 = columnDirection.x;
+        float a21 = rowDirection.y;
+        float a22 = layerDirection.y;
+        float a23 = columnDirection.y;
+        float a31 = rowDirection.z;
+        float a32 = layerDirection.z;
+        float a33 = columnDirection.z;
+
+        float det =
+            a11 * (a22 * a33 - a23 * a32) -
+            a12 * (a21 * a33 - a23 * a31) +
+            a13 * (a21 * a32 - a22 * a31);
+
+        if (Mathf.Abs(det) < 1e-8f)
+        {
+            return false;
+        }
+
+        float invDet = 1f / det;
+        rowScalar = invDet * (
+            delta.x * (a22 * a33 - a23 * a32) -
+            a12 * (delta.y * a33 - a23 * delta.z) +
+            a13 * (delta.y * a32 - a22 * delta.z));
+        layerScalar = invDet * (
+            a11 * (delta.y * a33 - a23 * delta.z) -
+            delta.x * (a21 * a33 - a23 * a31) +
+            a13 * (a21 * delta.z - delta.y * a31));
+        columnScalar = invDet * (
+            a11 * (a22 * delta.z - delta.y * a32) -
+            a12 * (a21 * delta.z - delta.y * a31) +
+            delta.x * (a21 * a32 - a22 * a31));
+        return true;
     }
 
     private WarehouseLayoutDepthConfig BuildLayoutDepthConfig()
@@ -1320,6 +1405,37 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
             m_evenColumnDepthDirection,
             m_oddColumnDepthDirection,
             m_depthDirection ?? Array.Empty<Vector3>());
+    }
+
+    private WarehouseLayoutAxisConfig BuildLayoutAxisConfig()
+    {
+        return new WarehouseLayoutAxisConfig(
+            m_layoutOrigin,
+            m_rowDirection,
+            m_layerDirection,
+            m_columnDirection);
+    }
+
+    private void ApplyLayoutAxisConfig(WarehouseLayoutAxisConfig config)
+    {
+        if (config == null)
+        {
+            ApplyDefaultAxisDirections();
+            m_layoutOrigin = Vector3.zero;
+            return;
+        }
+
+        m_layoutOrigin = config.Origin;
+        m_rowDirection = config.RowDirection;
+        m_layerDirection = config.LayerDirection;
+        m_columnDirection = config.ColumnDirection;
+    }
+
+    private void ApplyDefaultAxisDirections()
+    {
+        m_rowDirection = Vector3.right;
+        m_layerDirection = Vector3.up;
+        m_columnDirection = Vector3.forward;
     }
 
     private void ApplyLayoutDepthConfig(WarehouseLayoutDepthConfig config)
@@ -1415,21 +1531,6 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
         m_depthDirection = resized;
     }
 
-    private Vector3 GetDepthDirection(int column)
-    {
-        if (IsOddEvenDepthMode)
-        {
-            return (column & 1) == 0 ? m_evenColumnDepthDirection : m_oddColumnDepthDirection;
-        }
-
-        if (m_depthDirection != null && (uint)column < (uint)m_depthDirection.Length)
-        {
-            return m_depthDirection[column];
-        }
-
-        return m_defaultDepthDirection;
-    }
-
     private static void OffsetArray(float[] values, float offset)
     {
         if (values == null || Mathf.Approximately(offset, 0f))
@@ -1495,11 +1596,10 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
 
     private string BuildLayoutSignature()
     {
-        string depthSignature = IsOddEvenDepthMode
-            ? $"OddEven:{FormatVector3(m_evenColumnDepthDirection)};{FormatVector3(m_oddColumnDepthDirection)}"
-            : $"Detailed:{Vector3ArraySignature(m_depthDirection)}";
-
-        return $"{ArraySignature(m_posRow)}|{ArraySignature(m_posLayer)}|{ArraySignature(m_posColumn)}|{m_depthCount}|{depthSignature}";
+        // 深度方向不参与坐标，不纳入布局签名；原点、轴方向与标量决定世界位置。
+        return
+            $"{FormatVector3(m_layoutOrigin)}|{FormatVector3(m_rowDirection)}|{FormatVector3(m_layerDirection)}|{FormatVector3(m_columnDirection)}|" +
+            $"{ArraySignature(m_posRow)}|{ArraySignature(m_posLayer)}|{ArraySignature(m_posColumn)}|{m_depthCount}";
     }
 
     private string BuildVisibilitySignature()
@@ -1555,22 +1655,6 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
         return string.Join(",", parts);
     }
 
-    private static string Vector3ArraySignature(Vector3[] values)
-    {
-        if (values == null)
-        {
-            return "null";
-        }
-
-        var parts = new string[values.Length];
-        for (int i = 0; i < values.Length; i++)
-        {
-            parts[i] = FormatVector3(values[i]);
-        }
-
-        return string.Join(";", parts);
-    }
-
     private void OnDrawGizmosSelected()
     {
         if (!m_drawGizmos || m_posRow == null || m_posLayer == null || m_posColumn == null)
@@ -1596,7 +1680,6 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
         {
             for (int column = 0; column < m_posColumn.Length; column++)
             {
-                Vector3 depthStep = GetDepthDirection(column);
                 for (int level = 0; level < m_posLayer.Length; level++)
                 {
                     if (filterByFocus && !IsFocusedBin(level, column, row))
@@ -1604,16 +1687,24 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
                         continue;
                     }
 
-                    var basePos = new Vector3(m_posRow[row], m_posLayer[level], m_posColumn[column]);
+                    // 各 Depth 同坐标：只要该格有任一未禁用深度，画一个预览盒即可。
+                    bool anyEnabled = false;
                     for (int depth = 0; depth < depthCount; depth++)
                     {
-                        if (IsSlotDisabled(level, column, row, depth))
+                        if (!IsSlotDisabled(level, column, row, depth))
                         {
-                            continue;
+                            anyEnabled = true;
+                            break;
                         }
-
-                        Gizmos.DrawWireCube(basePos + depthStep * depth, m_gizmoSize);
                     }
+
+                    if (!anyEnabled)
+                    {
+                        continue;
+                    }
+
+                    var pos = ComposeWorldPosition(m_posRow[row], m_posLayer[level], m_posColumn[column]);
+                    Gizmos.DrawWireCube(pos, m_gizmoSize);
                 }
             }
         }
@@ -1664,7 +1755,7 @@ public class WarehouseManagerLayoutEditor : MonoBehaviour
             return 0;
         }
 
-        return (long)m_posRow.Length * m_posColumn.Length * m_posLayer.Length * Mathf.Max(1, m_depthCount);
+        return (long)m_posRow.Length * m_posColumn.Length * m_posLayer.Length;
     }
 }
 #else

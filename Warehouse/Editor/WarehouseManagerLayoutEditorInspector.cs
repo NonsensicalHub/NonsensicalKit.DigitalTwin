@@ -6,6 +6,10 @@ public sealed class WarehouseManagerLayoutEditorInspector : Editor
 {
     private SerializedProperty _warehouseManager;
     private SerializedProperty _warehouseFileName;
+    private SerializedProperty _layoutOrigin;
+    private SerializedProperty _rowDirection;
+    private SerializedProperty _layerDirection;
+    private SerializedProperty _columnDirection;
     private SerializedProperty _posRow;
     private SerializedProperty _posLayer;
     private SerializedProperty _posColumn;
@@ -39,6 +43,10 @@ public sealed class WarehouseManagerLayoutEditorInspector : Editor
     {
         _warehouseManager = serializedObject.FindProperty("m_warehouseManager");
         _warehouseFileName = serializedObject.FindProperty("m_warehouseFileName");
+        _layoutOrigin = serializedObject.FindProperty("m_layoutOrigin");
+        _rowDirection = serializedObject.FindProperty("m_rowDirection");
+        _layerDirection = serializedObject.FindProperty("m_layerDirection");
+        _columnDirection = serializedObject.FindProperty("m_columnDirection");
         _posRow = serializedObject.FindProperty("m_posRow");
         _posLayer = serializedObject.FindProperty("m_posLayer");
         _posColumn = serializedObject.FindProperty("m_posColumn");
@@ -92,7 +100,7 @@ public sealed class WarehouseManagerLayoutEditorInspector : Editor
         EditorGUILayout.Space(2f);
         EditorGUILayout.LabelField("货位布局编辑器", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox(
-            "坐标：PosX=排(Row)，PosY=层(Layer)，PosZ=列(Column)。\n" +
+            "世界坐标 = 原点 + 排标量×排方向 + 层标量×层方向 + 列标量×列方向。\n" +
             $"当前尺寸：排 {editor.RowCount} / 层 {editor.LayerCount} / 列 {editor.ColumnCount} / 深 {editor.DepthAxisCount}\n" +
             (Application.isPlaying
                 ? "Play 中：改参可热刷新货物位置（尺寸变更需先保存并重进 Play）。"
@@ -151,15 +159,39 @@ public sealed class WarehouseManagerLayoutEditorInspector : Editor
             return;
         }
 
-        EditorGUILayout.PropertyField(_posRow, new GUIContent("排 PosX (Row)"), true);
-        EditorGUILayout.PropertyField(_posLayer, new GUIContent("层 PosY (Layer)"), true);
-        EditorGUILayout.PropertyField(_posColumn, new GUIContent("列 PosZ (Column)"), true);
-        EditorGUILayout.PropertyField(_depthCount, new GUIContent("深 Depth 数量"));
-        EditorGUILayout.PropertyField(_depthDirectionMode, new GUIContent("深度配置模式"));
+        EditorGUILayout.PropertyField(_layoutOrigin, new GUIContent("布局原点"));
+        EditorGUILayout.PropertyField(
+            _rowDirection,
+            new GUIContent("排方向", "世界空间方向，不强制归一化；负向量即反向。"));
+        EditorGUILayout.PropertyField(
+            _layerDirection,
+            new GUIContent("层方向", "世界空间方向，不强制归一化；负向量即反向。"));
+        EditorGUILayout.PropertyField(
+            _columnDirection,
+            new GUIContent("列方向", "世界空间方向，不强制归一化；负向量即反向。"));
+
+        EditorGUILayout.Space(2f);
+        EditorGUILayout.PropertyField(_posRow, new GUIContent("排标量 (Row)"), true);
+        EditorGUILayout.PropertyField(_posLayer, new GUIContent("层标量 (Layer)"), true);
+        EditorGUILayout.PropertyField(_posColumn, new GUIContent("列标量 (Column)"), true);
+        EditorGUILayout.PropertyField(
+            _depthCount,
+            new GUIContent("深 Depth 数量", "索引维度，不改变货位世界坐标；供堆垛机等判断叉子伸出档位。"));
+        EditorGUILayout.PropertyField(
+            _depthDirectionMode,
+            new GUIContent("深度配置模式", "深度方向仅写入 .dat 供设备使用，不参与坐标计算。"));
+
+        EditorGUILayout.HelpBox(
+            "深度是索引，不是空间轴：同排/层/列下各 Depth 共用同一坐标。\n" +
+            "深度方向配置保存后供堆垛机等设备判断叉伸方向。",
+            MessageType.Info);
 
         if (editor.IsDetailedDepthMode)
         {
-            EditorGUILayout.PropertyField(_depthDirection, new GUIContent("列深度方向"), true);
+            EditorGUILayout.PropertyField(
+                _depthDirection,
+                new GUIContent("列深度方向", "每列叉伸方向（设备元数据），不参与货位坐标。"),
+                true);
             EditorGUILayout.PropertyField(_defaultDepthDirection, new GUIContent("默认深度方向"));
             if (GUILayout.Button("用默认深度方向填充所有列"))
             {
@@ -168,8 +200,12 @@ public sealed class WarehouseManagerLayoutEditorInspector : Editor
         }
         else if (editor.IsOddEvenDepthMode)
         {
-            EditorGUILayout.PropertyField(_evenColumnDepthDirection, new GUIContent("偶数列深度方向"));
-            EditorGUILayout.PropertyField(_oddColumnDepthDirection, new GUIContent("奇数列深度方向"));
+            EditorGUILayout.PropertyField(
+                _evenColumnDepthDirection,
+                new GUIContent("偶数列深度方向", "设备元数据，不参与坐标。"));
+            EditorGUILayout.PropertyField(
+                _oddColumnDepthDirection,
+                new GUIContent("奇数列深度方向", "设备元数据，不参与坐标。"));
         }
 
         EndFoldout();
@@ -327,7 +363,7 @@ public sealed class WarehouseManagerLayoutEditorInspector : Editor
         EditorGUILayout.Space(2f);
         EditorGUILayout.LabelField("翻转索引", EditorStyles.miniBoldLabel);
         EditorGUILayout.HelpBox(
-            "将该轴坐标数组首尾对调。世界坐标集合不变，仅索引与位置对调。翻列时同步处理深度方向。",
+            "将该轴标量数组首尾对调。世界坐标集合不变，仅索引与位置对调。翻列时同步处理深度方向。",
             MessageType.None);
         if (GUILayout.Button("翻转所选轴索引", GUILayout.Height(24f)))
         {
@@ -336,17 +372,17 @@ public sealed class WarehouseManagerLayoutEditorInspector : Editor
 
         EditorGUILayout.Space(6f);
         EditorGUILayout.LabelField("整体平移", EditorStyles.miniBoldLabel);
-        EditorGUILayout.PropertyField(_axisTranslateDelta, new GUIContent("单轴平移量"));
-        if (GUILayout.Button("平移所选轴", GUILayout.Height(22f)))
+        EditorGUILayout.PropertyField(_axisTranslateDelta, new GUIContent("单轴标量平移量"));
+        if (GUILayout.Button("平移所选轴标量", GUILayout.Height(22f)))
         {
             Invoke(editor, "平移所选轴", editor.TranslateSelectedAxis);
         }
 
         EditorGUILayout.Space(4f);
-        EditorGUILayout.PropertyField(_offset, new GUIContent("三轴偏移量 (排X / 层Y / 列Z)"));
-        if (GUILayout.Button("按三轴偏移量整体平移", GUILayout.Height(22f)))
+        EditorGUILayout.PropertyField(_offset, new GUIContent("原点世界平移量 (XYZ)"));
+        if (GUILayout.Button("平移布局原点", GUILayout.Height(22f)))
         {
-            Invoke(editor, "三轴整体平移", editor.ApplyOffsetToAxes);
+            Invoke(editor, "平移布局原点", editor.ApplyOffsetToAxes);
         }
 
         EndFoldout();
@@ -359,13 +395,19 @@ public sealed class WarehouseManagerLayoutEditorInspector : Editor
             return;
         }
 
-        EditorGUILayout.PropertyField(_uniformOrigin, new GUIContent("原点"));
-        EditorGUILayout.PropertyField(_uniformSpacing, new GUIContent("间距 (排X / 层Y / 列Z)"));
+        EditorGUILayout.PropertyField(_uniformOrigin, new GUIContent("原点（写入布局原点）"));
+        EditorGUILayout.PropertyField(
+            _uniformSpacing,
+            new GUIContent("标量间距 (排 / 层 / 列)", "可为负以实现反向排布。"));
         EditorGUILayout.PropertyField(_uniformCount, new GUIContent("数量 (排 / 层 / 列)"));
         if (editor.IsDetailedDepthMode)
         {
             EditorGUILayout.PropertyField(_defaultDepthDirection, new GUIContent("默认深度方向"));
         }
+
+        EditorGUILayout.HelpBox(
+            "生成标量 = 索引 × 间距；世界位置再乘以当前排/层/列方向。",
+            MessageType.None);
 
         if (GUILayout.Button("按原点+间距生成轴坐标", GUILayout.Height(24f)))
         {

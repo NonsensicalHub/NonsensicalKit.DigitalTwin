@@ -29,6 +29,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
     /// <summary>
     /// 布局编辑器用的深度方向配置。正式运行时忽略；写入 .dat 扩展头，供下次配置回读。
+    /// 深度方向供堆垛机等设备使用，不参与货位世界坐标计算。
     /// </summary>
     public enum WarehouseDepthDirectionMode
     {
@@ -60,6 +61,39 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
     }
 
     /// <summary>
+    /// 布局编辑器用的排/层/列轴方向配置。正式运行时忽略；写入 .dat 扩展头供回读。
+    /// 世界坐标 = Origin + RowScalar×RowDirection + LayerScalar×LayerDirection + ColumnScalar×ColumnDirection。
+    /// </summary>
+    public sealed class WarehouseLayoutAxisConfig
+    {
+        public Vector3 Origin { get; set; }
+        public Vector3 RowDirection { get; set; }
+        public Vector3 LayerDirection { get; set; }
+        public Vector3 ColumnDirection { get; set; }
+
+        public WarehouseLayoutAxisConfig(
+            Vector3 origin,
+            Vector3 rowDirection,
+            Vector3 layerDirection,
+            Vector3 columnDirection)
+        {
+            Origin = origin;
+            RowDirection = rowDirection;
+            LayerDirection = layerDirection;
+            ColumnDirection = columnDirection;
+        }
+
+        public static WarehouseLayoutAxisConfig CreateDefault()
+        {
+            return new WarehouseLayoutAxisConfig(
+                Vector3.zero,
+                Vector3.right,
+                Vector3.up,
+                Vector3.forward);
+        }
+    }
+
+    /// <summary>
     /// 仓库数据对象，包含货位数组与维度信息。
     /// </summary>
     public sealed class WarehouseData
@@ -70,6 +104,9 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
         /// <summary>可选：布局深度配置（仅编辑器回读使用，运行时可不读）。</summary>
         public WarehouseLayoutDepthConfig LayoutDepthConfig { get; }
 
+        /// <summary>可选：布局轴方向配置（仅编辑器回读使用，运行时可不读）。</summary>
+        public WarehouseLayoutAxisConfig LayoutAxisConfig { get; }
+
         /// <summary>可选：货位禁用规则（加载时应用到 SlotEnabled / ShowCargo）。</summary>
         public WarehouseSlotDisableRule[] SlotDisableRules { get; }
 
@@ -77,21 +114,24 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             BinData[] bins,
             Int4 dimensions,
             WarehouseLayoutDepthConfig layoutDepthConfig = null,
-            WarehouseSlotDisableRule[] slotDisableRules = null)
+            WarehouseSlotDisableRule[] slotDisableRules = null,
+            WarehouseLayoutAxisConfig layoutAxisConfig = null)
         {
             Bins = bins ?? Array.Empty<BinData>();
             Dimensions = dimensions;
             LayoutDepthConfig = layoutDepthConfig;
+            LayoutAxisConfig = layoutAxisConfig;
             SlotDisableRules = slotDisableRules;
         }
 
         public static WarehouseData Create(
             BinData[] bins,
             WarehouseLayoutDepthConfig layoutDepthConfig = null,
-            WarehouseSlotDisableRule[] slotDisableRules = null)
+            WarehouseSlotDisableRule[] slotDisableRules = null,
+            WarehouseLayoutAxisConfig layoutAxisConfig = null)
         {
             var dimensions = BinDataIO.InferDimensions(bins);
-            return new WarehouseData(bins, dimensions, layoutDepthConfig, slotDisableRules);
+            return new WarehouseData(bins, dimensions, layoutDepthConfig, slotDisableRules, layoutAxisConfig);
         }
     }
 
@@ -122,6 +162,14 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         /// <summary>扩展段固定前缀：magic + version + mode + even3 + odd3 + detailedCount。</summary>
         private const int LayoutDepthFixedSize = IntByteSize * 4 + FloatByteSize * 6;
+
+        /// <summary>布局轴方向配置扩展段魔数 "AXES"。</summary>
+        private const int LayoutAxisMagic = 0x53455841;
+
+        private const int LayoutAxisVersion = 1;
+
+        /// <summary>轴配置固定段：magic + version + origin3 + row3 + layer3 + column3。</summary>
+        private const int LayoutAxisFixedSize = IntByteSize * 2 + FloatByteSize * 12;
 
         /// <summary>货位禁用规则扩展段魔数 "DSBL"。</summary>
         private const int SlotDisableMagic = 0x4C425344;
@@ -164,9 +212,10 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             BinData[] bins,
             string filePath,
             WarehouseLayoutDepthConfig layoutDepthConfig = null,
-            WarehouseSlotDisableRule[] slotDisableRules = null)
+            WarehouseSlotDisableRule[] slotDisableRules = null,
+            WarehouseLayoutAxisConfig layoutAxisConfig = null)
         {
-            var data = WarehouseData.Create(bins, layoutDepthConfig, slotDisableRules);
+            var data = WarehouseData.Create(bins, layoutDepthConfig, slotDisableRules, layoutAxisConfig);
             ValidateFilePath(filePath);
             ValidateWarehouseData(data);
             var bytes = SerializeToBytes(data);
@@ -188,9 +237,10 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             BinData[] bins,
             string filePath,
             WarehouseLayoutDepthConfig layoutDepthConfig = null,
-            WarehouseSlotDisableRule[] slotDisableRules = null)
+            WarehouseSlotDisableRule[] slotDisableRules = null,
+            WarehouseLayoutAxisConfig layoutAxisConfig = null)
         {
-            var data = WarehouseData.Create(bins, layoutDepthConfig, slotDisableRules);
+            var data = WarehouseData.Create(bins, layoutDepthConfig, slotDisableRules, layoutAxisConfig);
 
             ValidateFilePath(filePath);
             ValidateWarehouseData(data);
@@ -238,7 +288,10 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             int count = bins.Length;
             int dataByteSize = checked(count * StructSize);
 
-            byte[] extensionSection = SerializeExtensionSections(data.LayoutDepthConfig, data.SlotDisableRules);
+            byte[] extensionSection = SerializeExtensionSections(
+                data.LayoutDepthConfig,
+                data.LayoutAxisConfig,
+                data.SlotDisableRules);
             int extensionSize = extensionSection?.Length ?? 0;
 
             int headerSize = checked(V1FixedHeaderSize + extensionSize);
@@ -261,18 +314,23 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         private static byte[] SerializeExtensionSections(
             WarehouseLayoutDepthConfig layoutDepthConfig,
+            WarehouseLayoutAxisConfig layoutAxisConfig,
             WarehouseSlotDisableRule[] slotDisableRules)
         {
             byte[] depthSection = layoutDepthConfig != null
                 ? SerializeLayoutDepthConfig(layoutDepthConfig)
+                : null;
+            byte[] axisSection = layoutAxisConfig != null
+                ? SerializeLayoutAxisConfig(layoutAxisConfig)
                 : null;
             byte[] disableSection = HasDisableRules(slotDisableRules)
                 ? SerializeSlotDisableRules(slotDisableRules)
                 : null;
 
             int depthSize = depthSection?.Length ?? 0;
+            int axisSize = axisSection?.Length ?? 0;
             int disableSize = disableSection?.Length ?? 0;
-            int total = checked(depthSize + disableSize);
+            int total = checked(depthSize + axisSize + disableSize);
             if (total == 0)
             {
                 return null;
@@ -284,6 +342,12 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             {
                 Buffer.BlockCopy(depthSection, 0, buffer, offset, depthSize);
                 offset += depthSize;
+            }
+
+            if (axisSize > 0)
+            {
+                Buffer.BlockCopy(axisSection, 0, buffer, offset, axisSize);
+                offset += axisSize;
             }
 
             if (disableSize > 0)
@@ -342,6 +406,7 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 CopyBufferToBins(buffer, header.HeaderSize, bins, dataByteSize);
 
             WarehouseLayoutDepthConfig layoutDepthConfig = null;
+            WarehouseLayoutAxisConfig layoutAxisConfig = null;
             WarehouseSlotDisableRule[] slotDisableRules = null;
             int extensionSize = header.HeaderSize - V1FixedHeaderSize;
             if (extensionSize > 0)
@@ -351,10 +416,16 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                     V1FixedHeaderSize,
                     extensionSize,
                     out layoutDepthConfig,
+                    out layoutAxisConfig,
                     out slotDisableRules);
             }
 
-            var data = new WarehouseData(bins, header.Dimensions, layoutDepthConfig, slotDisableRules);
+            var data = new WarehouseData(
+                bins,
+                header.Dimensions,
+                layoutDepthConfig,
+                slotDisableRules,
+                layoutAxisConfig);
             ValidateWarehouseData(data);
             return data;
         }
@@ -483,9 +554,11 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             int offset,
             int availableSize,
             out WarehouseLayoutDepthConfig layoutDepthConfig,
+            out WarehouseLayoutAxisConfig layoutAxisConfig,
             out WarehouseSlotDisableRule[] slotDisableRules)
         {
             layoutDepthConfig = null;
+            layoutAxisConfig = null;
             slotDisableRules = null;
 
             int cursor = offset;
@@ -506,6 +579,18 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                     continue;
                 }
 
+                if (magic == LayoutAxisMagic)
+                {
+                    if (!TryReadLayoutAxisConfig(buffer, cursor, remaining, out var config, out int consumed))
+                    {
+                        break;
+                    }
+
+                    layoutAxisConfig = config;
+                    cursor += consumed;
+                    continue;
+                }
+
                 if (magic == SlotDisableMagic)
                 {
                     if (!TryReadSlotDisableRules(buffer, cursor, remaining, out var rules, out int consumed))
@@ -521,6 +606,61 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
                 // 未知扩展段，停止解析以保持兼容。
                 break;
             }
+        }
+
+        private static byte[] SerializeLayoutAxisConfig(WarehouseLayoutAxisConfig config)
+        {
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+
+            byte[] buffer = new byte[LayoutAxisFixedSize];
+            int offset = 0;
+            WriteInt32(buffer, offset, LayoutAxisMagic);
+            offset += IntByteSize;
+            WriteInt32(buffer, offset, LayoutAxisVersion);
+            offset += IntByteSize;
+            WriteVector3(buffer, offset, config.Origin);
+            offset += FloatByteSize * 3;
+            WriteVector3(buffer, offset, config.RowDirection);
+            offset += FloatByteSize * 3;
+            WriteVector3(buffer, offset, config.LayerDirection);
+            offset += FloatByteSize * 3;
+            WriteVector3(buffer, offset, config.ColumnDirection);
+            return buffer;
+        }
+
+        private static bool TryReadLayoutAxisConfig(
+            byte[] buffer,
+            int offset,
+            int availableSize,
+            out WarehouseLayoutAxisConfig config,
+            out int bytesConsumed)
+        {
+            config = null;
+            bytesConsumed = 0;
+            if (availableSize < LayoutAxisFixedSize)
+                return false;
+
+            int magic = ReadInt32(buffer, offset);
+            if (magic != LayoutAxisMagic)
+                return false;
+
+            int version = ReadInt32(buffer, offset + IntByteSize);
+            if (version != LayoutAxisVersion)
+                return false;
+
+            int cursor = offset + IntByteSize * 2;
+            Vector3 origin = ReadVector3(buffer, cursor);
+            cursor += FloatByteSize * 3;
+            Vector3 rowDirection = ReadVector3(buffer, cursor);
+            cursor += FloatByteSize * 3;
+            Vector3 layerDirection = ReadVector3(buffer, cursor);
+            cursor += FloatByteSize * 3;
+            Vector3 columnDirection = ReadVector3(buffer, cursor);
+
+            config = new WarehouseLayoutAxisConfig(origin, rowDirection, layerDirection, columnDirection);
+            bytesConsumed = LayoutAxisFixedSize;
+            return true;
         }
 
         private static byte[] SerializeLayoutDepthConfig(WarehouseLayoutDepthConfig config)
@@ -879,8 +1019,9 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
 
         /// <summary>
         /// 生成一个测试用规则货架数据（默认深度为 1）。
-        /// columnDepthDirections 为每列 Depth 每 +1 的偏移；为 null 时不加深度偏移。
-        /// Depth=0 在基准点：Pos = origin + 排/层/列间距 + 列深度方向 × Depth。
+        /// 深度仅作索引维度，不参与坐标偏移；同排/层/列各 Depth 共用同一世界坐标。
+        /// 默认等价于 Origin + 排×(1,0,0) + 层×(0,1,0) + 列×(0,0,1)。
+        /// columnDepthDirections 保留参数以兼容旧调用，当前忽略（深度方向应走 LayoutDepthConfig）。
         /// </summary>
         public static WarehouseData CreateTestWarehouse(
             int rowCount,
@@ -912,20 +1053,15 @@ namespace NonsensicalKit.DigitalTwin.Warehouse
             {
                 for (int column = 0; column < columnCount; column++)
                 {
-                    Vector3 depthStep = columnDepthDirections != null
-                        ? columnDepthDirections[column]
-                        : Vector3.zero;
-
                     for (int level = 0; level < levelCount; level++)
                     {
-                        var basePos = new Vector3(
+                        var pos = new Vector3(
                             origin.x + row * actualSpacing.x,
                             origin.y + level * actualSpacing.y,
                             origin.z + column * actualSpacing.z);
 
                         for (int depth = 0; depth < depthCount; depth++)
                         {
-                            Vector3 pos = basePos + depthStep * depth;
                             bins[index++] = new BinData
                             {
                                 Row = row,
