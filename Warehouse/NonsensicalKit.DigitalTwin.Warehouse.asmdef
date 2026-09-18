@@ -4,6 +4,7 @@
     "references": [
         "NonsensicalKit.Core.Runtime",
         "NonsensicalKit.NaughtyAttributes",
+        "NonsensicalKit.DigitalTwin.Motion",
         "Unity.TextMeshPro",
         "Cinemachine",
         "UniTask",

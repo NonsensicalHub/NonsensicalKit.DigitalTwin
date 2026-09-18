@@ -1,14 +1,10 @@
 {
-    "name": "NonsensicalKit.DigitalTwin.Editor",
-    "rootNamespace": "",
+    "name": "NonsensicalKit.DigitalTwin.Cargo",
+    "rootNamespace": "NonsensicalKit.DigitalTwin.Cargo",
     "references": [
-        "NonsensicalKit.Core.Runtime",
-        "NonsensicalKit.DigitalTwin.Motion",
-        "NonsensicalKit.DigitalTwin.Render"
+        "NonsensicalKit.Core.Runtime"
     ],
-    "includePlatforms": [
-        "Editor"
-    ],
+    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
