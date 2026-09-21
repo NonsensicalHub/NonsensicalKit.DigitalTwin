@@ -8,10 +8,12 @@ namespace NonsensicalKit.DigitalTwin.Motion
 
 /// <summary>
 /// 普通输送工位（逻辑驱动，非物理仿真）：有货生成/回收、正反转下传。
-/// 物料由本工位按皮带速度平移；有下游时沿两工位停靠点连线方向驶向交界切权点
-/// （间隙按 <c>centerDist * lenA / (lenA + lenB)</c> 分摊），避免工位左右误差把货物瞬时吸回配置轴向。
-/// 正反转均关闭时立刻原地刹停。
-/// 顶升移栽 <see cref="JackTransferPartMotion"/> 继承此类并扩展换线逻辑。
+/// 物料由本工位按皮带速度沿本段正反转轴向平移，高度锁在停靠面；到交界再交给下游，不沿两站连线抄近道。
+/// 间隙仍按 <c>centerDist * lenA / (lenA + lenB)</c> 分摊到轴向上的切权点。
+/// 光电无货不等于货物已离开：现场多为单探头脉冲，两站之间会有空窗。
+    /// 无货时先滑行持货；下游仍在转则继续朝交界走；后站有货且货已到交界时认领同一实体，超时才回收。
+/// 正反转均关闭且无需滑行时立刻原地刹停。
+/// 顶升移栽 <see cref="JackTransferPartMotion"/>、翻转输送 <see cref="FlipConveyorPartMotion"/>（CSJ_TCC_*）继承此类并扩展机构逻辑。
 /// PLC：part[2] 正转，part[3] 反转，part[4] 有货（传输机经占位填充后）。
 /// </summary>
 public class ConveyorPartMotion : PartMotionBase
@@ -26,8 +28,8 @@ public class ConveyorPartMotion : PartMotionBase
     [SerializeField, Min(0.01f)] protected float m_length = 1.5f;
     [Tooltip("物料相对工位的高度偏移")]
     [SerializeField] protected float m_materialHeight = 0.1f;
-    [Tooltip("有货上升沿生成点相对停靠点的上游偏移（米）")]
-    [SerializeField] protected float m_entryDistance = 1.5f;
+    [Tooltip("有货上升沿生成点相对中心沿正转方向的偏移（米）。0 为中心；正数往正转，负数往反转")]
+    [SerializeField] protected float m_createOffset;
     [Tooltip("停靠点相对物体原点沿正转方向的偏移（米）")]
     [SerializeField] protected float m_parkOffset;
 
@@ -36,6 +38,12 @@ public class ConveyorPartMotion : PartMotionBase
     [SerializeField] protected ConveyorPartMotion m_forwardNext;
     [Tooltip("反转时的下游工位（ConveyorPartMotion / 顶升移栽机等）")]
     [SerializeField] protected ConveyorPartMotion m_reverseNext;
+
+    [Header("光电空窗")]
+    [Tooltip("无下游（线尾停靠）时，停转无货后多久回收。给同帧顶升抢货留一点时间。")]
+    [SerializeField, Min(0f)] protected float m_parkedEmptyTimeout = 0.08f;
+    [Tooltip("在途无货且邻站未认领时的最长持货时间；下游还在转时不会走这个超时。")]
+    [SerializeField, Min(0.1f)] protected float m_coastTimeout = 8f;
 
     [Header("Label")]
     [SerializeField, InspectorName("显示标签")]
@@ -78,16 +86,31 @@ public class ConveyorPartMotion : PartMotionBase
     protected bool _waitingHandoff;
     /// <summary>有货上升沿因上游持货跳过创建；上游清空后补建。</summary>
     private bool _createDeferred;
-    /// <summary>光电已灭且已停转；下一帧仍无人取走才回收，避免同帧顶升抢货前被销掉。</summary>
+    /// <summary>开始推迟创建的帧号，给同批 MQTT 里上游先建货留出一帧。</summary>
+    private int _createDeferredFrame = int.MinValue;
+    /// <summary>推迟补建落在停靠点，避免生成偏移叠到上一站。</summary>
+    private bool _deferredCreateAtPark;
+    /// <summary>光电已灭且已停转；超时后仍无人取走才回收。</summary>
     protected bool _emptyRecycleArmed;
-    /// <summary>武装回收的帧号；下一帧起由 Update 补完成，不依赖 MQTT 再推一包。</summary>
-    private int _emptyRecycleArmFrame = -1;
+    /// <summary>武装回收的时刻；由 LateUpdate 补完成，不依赖 MQTT 再推一包。</summary>
+    private float _emptyRecycleArmTime = -1f;
+    /// <summary>最近一次正转/反转方向，停转滑行时仍用来找下游。</summary>
+    private bool _lastRunWasForward = true;
 
     protected bool IsMaterialMoving => _beltDriving && Material != null;
 
     public bool HasMaterial => Material != null;
 
     public bool IsParked => Parked && Material != null && !IsMaterialMoving;
+
+    /// <summary>物料已贴在停靠点（顶升取货前要等真正归位，不能只看 Parked 标志）。</summary>
+    public bool IsAtPark =>
+        Material != null && (Material.position - MaterialPoint).sqrMagnitude <= ParkArriveSqr;
+
+    private const float ParkArriveSqr = 0.02f * 0.02f;
+
+    /// <summary>光电已灭但仍持有物料（空窗滑行中）。</summary>
+    public bool IsCoasting => Material != null && !IsLoad;
 
     /// <summary>当前运行方向对应的下游；正反同时开时优先正转。</summary>
     protected ConveyorPartMotion CurrentDownstream
@@ -100,12 +123,43 @@ public class ConveyorPartMotion : PartMotionBase
         }
     }
 
+    /// <summary>停转后仍有效的下游（按最后一次运转方向）。</summary>
+    protected ConveyorPartMotion LastDownstream =>
+        _lastRunWasForward ? m_forwardNext : m_reverseNext;
+
+    /// <summary>
+    /// 光电空窗且本段已停，但下游还在转/已亮有货：货物还在两探头之间，由下一段往前拉。
+    /// 顶升抢货期间不滑行。
+    /// </summary>
+    protected virtual bool ShouldCoastDrive
+    {
+        get
+        {
+            if (Material == null || IsLoad) return false;
+            if (ForwardRun || ReverseRun) return false;
+            if (_transferSuppressed || !CanTransferDownstream) return false;
+            var down = LastDownstream;
+            if (down == null || down.HasMaterial) return false;
+            return down.ForwardRun || down.ReverseRun || down.IsLoad;
+        }
+    }
+
+    protected ConveyorPartMotion ResolveDriveDownstream()
+    {
+        if (ForwardRun) return m_forwardNext;
+        if (ReverseRun) return m_reverseNext;
+        if (ShouldCoastDrive) return LastDownstream;
+        return null;
+    }
+
     /// <summary>外部设备（如顶升移栽）抑制本工位自动下传，避免货物被提前送走。</summary>
     public void SetTransferSuppressed(bool suppressed)
     {
         if (_transferSuppressed == suppressed) return;
         _transferSuppressed = suppressed;
         DiagLog("SUPPRESS", $"value={Bool01(suppressed)} | {DiagStateSnapshot()}");
+        if (suppressed && Material != null)
+            StartBeltDrive();
     }
 
     public ConveyorPartMotion ForwardNext => m_forwardNext;
@@ -281,15 +335,15 @@ public class ConveyorPartMotion : PartMotionBase
         }
     }
 
-    /// <summary>本工位入口侧生成点（停靠点上游）。</summary>
+    /// <summary>本工位货物生成点：停靠中心沿正转方向偏移 <c>m_createOffset</c> 米。</summary>
     public virtual Vector3 EntryPoint
     {
         get
         {
             var axis = ForwardWorldAxis;
-            if (axis.sqrMagnitude < 1e-8f)
+            if (axis.sqrMagnitude < 1e-8f || Mathf.Abs(m_createOffset) < 1e-6f)
                 return MaterialPoint;
-            return MaterialPoint - axis.normalized * m_entryDistance;
+            return MaterialPoint + axis.normalized * m_createOffset;
         }
     }
 
@@ -352,28 +406,40 @@ public class ConveyorPartMotion : PartMotionBase
     {
         if (Material == null) return;
 
+        var driving = ForwardRun || ReverseRun || ShouldCoastDrive;
+
         // 交界等待：下游拒收时每帧重试，不继续前冲
-        if (_waitingHandoff && (ForwardRun || ReverseRun))
+        if (_waitingHandoff && driving)
         {
             TryTransferDownstream();
             return;
         }
 
-        if (!_beltDriving) return;
-        if (!ForwardRun && !ReverseRun) return;
+        if (!driving) return;
+
+        if (!_beltDriving)
+            StartBeltDrive();
 
         TickBeltMove(Time.deltaTime);
     }
 
     protected virtual void LateUpdate()
     {
-        // MQTT 无变化时不会再推包；武装后下一帧在此完成回收（堆垛机取走等只灭有货的场景）。
+        // MQTT 无变化时不会再推包；滑行结束或线尾无货后在此完成回收。
         // 放 LateUpdate，便于同帧内顶升机 Update 先 PAIR_TAKE。
-        TryCompleteArmedEmptyRecycle();
+        TryFinishDeferredCreate();
+        if (Material != null && !IsLoad && !ForwardRun && !ReverseRun && !ShouldCoastDrive)
+            TryRecycleIfEmpty(isLoad: false);
+        else
+            TryCompleteArmedEmptyRecycle();
     }
 
     /// <summary>接收上游物料。成功则接管；运行中继续由本段皮带驱动。</summary>
-    public virtual bool TryAcceptMaterial(Transform material)
+    public virtual bool TryAcceptMaterial(Transform material) =>
+        TryAcceptMaterial(material, snapToPark: false);
+
+    /// <param name="snapToPark">顶升放货等需要一次归位时，落到本工位停靠点。</param>
+    public virtual bool TryAcceptMaterial(Transform material, bool snapToPark)
     {
         if (material == null || Material != null || !CanAcceptMaterial)
             return false;
@@ -384,9 +450,13 @@ public class ConveyorPartMotion : PartMotionBase
 
         Parked = false;
         _waitingHandoff = false;
-        _createDeferred = false;
+        ClearCreateDeferred();
         DisarmEmptyRecycle();
         OnMaterialAccepted(Material);
+        if (snapToPark)
+            SnapMaterialToPark();
+        else
+            StickToBeltHeight();
 
         if (ForwardRun || ReverseRun)
             StartBeltDrive();
@@ -398,6 +468,13 @@ public class ConveyorPartMotion : PartMotionBase
 
         DiagLog("ACCEPT_OK", DiagStateSnapshot());
         return true;
+    }
+
+    /// <summary>把物料落到停靠点（水平+高度一次归位）。</summary>
+    public void SnapMaterialToPark()
+    {
+        if (Material == null) return;
+        Material.position = MaterialPoint;
     }
 
     /// <summary>外部取走本工位物料。成功则清空本地引用并停止移动。</summary>
@@ -412,6 +489,7 @@ public class ConveyorPartMotion : PartMotionBase
         Material = null;
         Parked = false;
         _waitingHandoff = false;
+        ClearCreateDeferred();
         DisarmEmptyRecycle();
         OnMaterialTakenAway(material);
         DiagLog("TAKE_OK", $"mat={material.name} | {DiagStateSnapshot()}");
@@ -443,6 +521,10 @@ public class ConveyorPartMotion : PartMotionBase
 
         ForwardRun = forward;
         ReverseRun = reverse;
+        if (ForwardRun)
+            _lastRunWasForward = true;
+        else if (ReverseRun)
+            _lastRunWasForward = false;
 
         if (m_enableDiagLog && (prevF != ForwardRun || prevR != ReverseRun || prevLoad != isLoad))
             DiagLog("SIGNAL",
@@ -453,17 +535,28 @@ public class ConveyorPartMotion : PartMotionBase
 
         if (isLoad && Material == null)
         {
-            // PLC 有货常比视觉交权更早：上游/配对站仍持货时勿新建，否则中间会叠两箱
-            if (TryFindUpstreamHoldingMaterial(out var upstream))
+            if (TryPullFromCoastingUpstream(out var pulledFrom))
             {
-                _createDeferred = true;
+                DiagLog("PULL_OK", $"from={StationKeyOf(pulledFrom)} | " + DiagStateSnapshot());
+            }
+            // PLC 有货常比视觉交权更早：上游/配对站仍持货时勿新建，否则中间会叠两箱
+            else if (TryFindUpstreamHoldingMaterial(out var upstream))
+            {
+                MarkCreateDeferred();
                 if (m_enableDiagLog && !IsLoad)
                     DiagLog("CREATE_SKIP",
                         $"upstream holding from={StationKeyOf(upstream)} | " + DiagStateSnapshot());
             }
+            // 同批点位可能先到后站：有上游拓扑时先等一帧，避免前后站各建一箱
+            else if (!IsLoad && HasIncomingUpstream())
+            {
+                MarkCreateDeferred();
+                if (m_enableDiagLog)
+                    DiagLog("CREATE_WAIT", "incoming upstream exists | " + DiagStateSnapshot());
+            }
             else if (!IsLoad || _createDeferred)
             {
-                _createDeferred = false;
+                ClearCreateDeferred();
                 CreateMaterialAtEntry();
             }
         }
@@ -471,14 +564,28 @@ public class ConveyorPartMotion : PartMotionBase
             DiagLog("CREATE_SKIP", "rising load but already has material | " + DiagStateSnapshot());
 
         if (!isLoad || Material != null)
-            _createDeferred = false;
+            ClearCreateDeferred();
 
         if (Material != null)
         {
-            if (ForwardRun || ReverseRun)
+            if (isLoad)
+                DisarmEmptyRecycle();
+
+            if (_transferSuppressed)
+            {
+                // 顶升抢货：驶回停靠点，不要原地刹停（Parked 不等于已经居中）
+                DisarmEmptyRecycle();
+                StartBeltDrive();
+            }
+            else if (ForwardRun || ReverseRun)
             {
                 DisarmEmptyRecycle();
                 EnsureMaterialMotionWhileRunning();
+            }
+            else if (ShouldCoastDrive)
+            {
+                DisarmEmptyRecycle();
+                EnsureCoastDrive();
             }
             else
             {
@@ -523,12 +630,57 @@ public class ConveyorPartMotion : PartMotionBase
     /// <summary>有货上升沿创建之前：子类可先从配对站抢货。</summary>
     protected virtual void TryClaimMaterialBeforeCreate() { }
 
-    /// <summary>有货上升沿的生成点。普通输送在入口；顶升抢货失败补建时用中心。</summary>
+    /// <summary>
+    /// 下游光电亮而本站为空：仅当上游滑行货已到交界时才把同一实体拉过来。
+    /// 未到交界则继续由上游沿本段皮带送过来，避免刚接手就朝再下一站连线飞空。
+    /// 上游光电仍亮时不拉，交给几何切权。
+    /// </summary>
+    protected bool TryPullFromCoastingUpstream(out ConveyorPartMotion upstream)
+    {
+        upstream = null;
+        if (!TryFindUpstreamHoldingMaterial(out var from) || from == null)
+            return false;
+
+        if (from.IsLoad)
+            return false;
+
+        if (from is JackTransferPartMotion jack && jack.IsTakingFromPaired)
+            return false;
+
+        // 还在上游段上：只推迟新建，不提前抢所有权
+        if (!from.IsAtOrPastHandover(this))
+            return false;
+
+        if (!from.TryTakeAwayMaterial(out var material) || material == null)
+            return false;
+
+        if (TryAcceptMaterial(material))
+        {
+            upstream = from;
+            return true;
+        }
+
+        if (!from.TryAcceptMaterial(material))
+            DiagLog("PULL_ORPHAN", $"from={StationKeyOf(from)} mat={material.name} | " + DiagStateSnapshot());
+        else
+            DiagLog("PULL_FAIL", $"from={StationKeyOf(from)} accept rejected | " + DiagStateSnapshot());
+        return false;
+    }
+
+    /// <summary>有货上升沿的生成点。默认停靠中心，可沿正转轴向偏移。</summary>
     protected virtual Vector3 GetCreateSpawnPoint() => EntryPoint;
 
     protected void CreateMaterialAtEntry()
     {
-        var spawn = GetCreateSpawnPoint();
+        if (TryFindUpstreamHoldingMaterial(out var holding))
+        {
+            MarkCreateDeferred();
+            DiagLog("CREATE_ABORT",
+                $"upstream holding from={StationKeyOf(holding)} | " + DiagStateSnapshot());
+            return;
+        }
+
+        var spawn = _deferredCreateAtPark ? MaterialPoint : GetCreateSpawnPoint();
         var go = Execute<Vector3, GameObject>("CreateNewMaterial", spawn);
         if (go == null)
         {
@@ -537,14 +689,17 @@ public class ConveyorPartMotion : PartMotionBase
         }
 
         Material = go.transform;
+        if (Material.parent != null)
+            Material.SetParent(null, true);
         Material.position = spawn;
         _waitingHandoff = false;
-        _createDeferred = false;
+        ClearCreateDeferred();
         DisarmEmptyRecycle();
 
         var atPark = (spawn - MaterialPoint).sqrMagnitude < 1e-6f;
         Parked = atPark && !ForwardRun && !ReverseRun;
         OnMaterialAccepted(Material);
+        StickToBeltHeight();
 
         if (ForwardRun || ReverseRun)
             EnsureMaterialMotionWhileRunning();
@@ -555,29 +710,29 @@ public class ConveyorPartMotion : PartMotionBase
     }
 
     /// <summary>
-    /// 有货上升沿时：若拓扑上游或配对顶升仍持有物料，说明货还在交权途中，不应再生成。
+    /// 有货上升沿时：若真正的上游或配对顶升仍持有物料，说明货还在交权途中，不应再生成。
+    /// 不会把当前下游当成上游，避免把已送出的箱子再拉回来。
     /// </summary>
     protected virtual bool TryFindUpstreamHoldingMaterial(out ConveyorPartMotion upstream)
     {
         upstream = null;
-
-        if (IsUpstreamCandidate(m_reverseNext, expectAsForwardNext: true))
+        var preferred = PreferredIncomingUpstream();
+        if (preferred != null && preferred.HasMaterial)
         {
-            upstream = m_reverseNext;
+            upstream = preferred;
             return true;
         }
 
-        if (IsUpstreamCandidate(m_forwardNext, expectAsForwardNext: false))
-        {
-            upstream = m_forwardNext;
-            return true;
-        }
+        var down = CurrentDownstream;
+        var lastDown = LastDownstream;
 
-        // 邻接未互配 / 顶升配对 / 提升机各层皮带链路：兜底扫一次（仅上升沿，频率低）
         foreach (var s in FindObjectsByType<ConveyorPartMotion>(FindObjectsSortMode.None))
         {
-            if (s == this || !s.HasMaterial) continue;
-            if (s.ForwardNext == this || s.ReverseNext == this)
+            if (s == null || s == this || !s.HasMaterial) continue;
+            if (s == down || s == lastDown) continue;
+
+            if (s.ForwardNext == this || s.ReverseNext == this
+                || s.CurrentDownstream == this || s.LastDownstream == this)
             {
                 upstream = s;
                 return true;
@@ -599,12 +754,72 @@ public class ConveyorPartMotion : PartMotionBase
         return false;
     }
 
+    /// <summary>按当前/最后运行方向解析真正的来货工位（正转看反转下游槽，反转看正转下游槽）。</summary>
+    protected ConveyorPartMotion PreferredIncomingUpstream()
+    {
+        bool forward = ForwardRun || (!ReverseRun && _lastRunWasForward);
+        return forward ? m_reverseNext : m_forwardNext;
+    }
+
+    /// <summary>拓扑上存在来货工位（含互指、顶升配对、提升机层链路）。</summary>
+    protected bool HasIncomingUpstream()
+    {
+        if (PreferredIncomingUpstream() != null)
+            return true;
+
+        foreach (var s in FindObjectsByType<ConveyorPartMotion>(FindObjectsSortMode.None))
+        {
+            if (s == null || s == this) continue;
+            if (s == CurrentDownstream || s == LastDownstream) continue;
+            if (s.ForwardNext == this || s.ReverseNext == this)
+                return true;
+            if (s is JackTransferPartMotion jack && jack.PairedStation == this)
+                return true;
+            if (s is LifterPartMotion lifter && lifter.IsFloorNeighbor(this))
+                return true;
+        }
+
+        return false;
+    }
+
+    private void MarkCreateDeferred()
+    {
+        _createDeferred = true;
+        _createDeferredFrame = Time.frameCount;
+    }
+
+    private void ClearCreateDeferred()
+    {
+        _createDeferred = false;
+        _createDeferredFrame = int.MinValue;
+        _deferredCreateAtPark = false;
+    }
+
+    /// <summary>推迟创建：上游仍持货则继续等；两帧后仍无来货才在停靠点补建。</summary>
+    private void TryFinishDeferredCreate()
+    {
+        if (!_createDeferred || !IsLoad || Material != null)
+            return;
+
+        if (TryFindUpstreamHoldingMaterial(out _))
+            return;
+
+        if (Time.frameCount <= _createDeferredFrame + 1)
+            return;
+
+        _deferredCreateAtPark = true;
+        CreateMaterialAtEntry();
+        _deferredCreateAtPark = false;
+    }
+
     /// <summary>停转且光电无货时是否允许回收本地物料。</summary>
     protected virtual bool ShouldRecycleWhenEmpty()
     {
         if (Material == null || IsMaterialMoving || _waitingHandoff)
             return false;
         if (IsClaimedByPairedJack())
+            return false;
+        if (ShouldCoastDrive)
             return false;
         return true;
     }
@@ -623,12 +838,24 @@ public class ConveyorPartMotion : PartMotionBase
     }
 
     /// <summary>
-    /// 光电灭且停转：本帧只刹停并武装；下一帧 LateUpdate 仍无人取走才回收。
-    /// 避免同帧「CC 先无货、LR 后顶起」把货销掉；也不依赖 MQTT 再推一包（堆垛机取走后常不再变化）。
+    /// 光电灭且停转：武装回收，超时后仍无人取走才删。
+    /// 线尾无下游用短超时（堆垛机取走）；有下游用滑行超时，等邻站认领。
     /// </summary>
     private void TryRecycleIfEmpty(bool isLoad)
     {
-        if (isLoad || IsMaterialMoving)
+        if (isLoad || IsMaterialMoving || ShouldCoastDrive)
+        {
+            DisarmEmptyRecycle();
+            return;
+        }
+
+        if (Material == null)
+        {
+            DisarmEmptyRecycle();
+            return;
+        }
+
+        if (!ShouldRecycleWhenEmpty())
         {
             DisarmEmptyRecycle();
             return;
@@ -637,27 +864,27 @@ public class ConveyorPartMotion : PartMotionBase
         if (!_emptyRecycleArmed)
         {
             _emptyRecycleArmed = true;
-            _emptyRecycleArmFrame = Time.frameCount;
-            DiagLog("RECYCLE_ARM", DiagStateSnapshot());
+            _emptyRecycleArmTime = Time.time;
+            DiagLog("RECYCLE_ARM",
+                $"delay={EmptyRecycleDelay:F2}s | " + DiagStateSnapshot());
             return;
         }
 
-        // 同帧内又推到停转无货（或诊断日志下重复包）：直接尝试完成
-        TryCompleteArmedEmptyRecycle(forceSameFrame: true);
+        TryCompleteArmedEmptyRecycle();
     }
 
-    /// <summary>武装后的下一帧（或同批二次无货）完成回收；顶升同帧抢货会清掉 Material / 武装。</summary>
-    private void TryCompleteArmedEmptyRecycle(bool forceSameFrame = false)
+    /// <summary>武装后达到超时才回收；顶升同帧抢货会清掉 Material / 武装。</summary>
+    private void TryCompleteArmedEmptyRecycle()
     {
         if (!_emptyRecycleArmed || Material == null)
             return;
-        if (IsLoad || ForwardRun || ReverseRun || IsMaterialMoving)
+        if (IsLoad || ForwardRun || ReverseRun || IsMaterialMoving || ShouldCoastDrive)
         {
             DisarmEmptyRecycle();
             return;
         }
 
-        if (!forceSameFrame && Time.frameCount <= _emptyRecycleArmFrame)
+        if (Time.time - _emptyRecycleArmTime < EmptyRecycleDelay)
             return;
 
         if (!ShouldRecycleWhenEmpty())
@@ -669,18 +896,21 @@ public class ConveyorPartMotion : PartMotionBase
         RecycleMaterial();
     }
 
+    private float EmptyRecycleDelay
+    {
+        get
+        {
+            var down = LastDownstream;
+            if (down == null || down.HasMaterial)
+                return m_parkedEmptyTimeout;
+            return m_coastTimeout;
+        }
+    }
+
     protected void DisarmEmptyRecycle()
     {
         _emptyRecycleArmed = false;
-        _emptyRecycleArmFrame = -1;
-    }
-
-    private bool IsUpstreamCandidate(ConveyorPartMotion other, bool expectAsForwardNext)
-    {
-        if (other == null || !other.HasMaterial) return false;
-        if (expectAsForwardNext)
-            return other.ForwardNext == this || other.CurrentDownstream == this;
-        return other.ReverseNext == this || other.CurrentDownstream == this;
+        _emptyRecycleArmTime = -1f;
     }
 
     /// <summary>运行中：有下游则驶向交界切权；抑制下传时驶回中心停靠；无下游则沿轴向自由输送。</summary>
@@ -688,7 +918,22 @@ public class ConveyorPartMotion : PartMotionBase
     {
         if (Material == null || (!ForwardRun && !ReverseRun)) return;
 
-        var downstream = CurrentDownstream;
+        var downstream = ResolveDriveDownstream();
+        if (downstream != null && _waitingHandoff)
+        {
+            TryTransferDownstream();
+            return;
+        }
+
+        StartBeltDrive();
+    }
+
+    /// <summary>本段已停但下游仍在拉货：按最后运行方向继续驶向交界。</summary>
+    protected void EnsureCoastDrive()
+    {
+        if (Material == null || !ShouldCoastDrive) return;
+
+        var downstream = ResolveDriveDownstream();
         if (downstream != null && _waitingHandoff)
         {
             TryTransferDownstream();
@@ -717,7 +962,7 @@ public class ConveyorPartMotion : PartMotionBase
         _waitingHandoff = false;
     }
 
-    /// <summary>按速度平移一帧：有下游则沿两工位连线驶向交界；无下游则沿配置轴向。</summary>
+    /// <summary>按速度平移一帧：始终沿本段正反转轴向走，高度锁在停靠面；到交界再切权。</summary>
     protected void TickBeltMove(float dt)
     {
         if (Material == null || dt <= 0f) return;
@@ -742,42 +987,35 @@ public class ConveyorPartMotion : PartMotionBase
             return;
         }
 
-        var downstream = CurrentDownstream;
-        if (downstream != null && TryGetHandover(downstream, out var handoffPoint, out var handoffDist))
+        var runAxis = GetRunWorldAxis();
+        if (runAxis.sqrMagnitude < 1e-8f) return;
+
+        var downstream = ResolveDriveDownstream();
+        var progress = Vector3.Dot(Material.position - park, runAxis);
+        if (downstream != null && TryGetAxialHandover(downstream, runAxis, out var handoffProgress))
         {
-            var from = park;
-            var to = downstream.MaterialPoint;
-            var delta = to - from;
-            if (delta.sqrMagnitude < 1e-10f)
+            if (progress + step >= handoffProgress - 1e-4f)
             {
-                Material.position = handoffPoint;
-                TryTransferDownstream();
-                return;
-            }
-
-            var dir = delta.normalized;
-            var progress = Vector3.Dot(Material.position - from, dir);
-
-            // 沿两工位连线前进；到交界只收束纵向进度，不把货物吸到连线上（避免左右闪现）
-            if (progress + step >= handoffDist - 1e-4f)
-            {
-                Material.position += dir * Mathf.Max(0f, handoffDist - progress);
+                Material.position += runAxis * Mathf.Max(0f, handoffProgress - progress);
+                StickToBeltHeight();
                 DiagLog("HANDOFF_REACH",
-                    $"dist={handoffDist:F3} to={StationKeyOf(downstream)} | {DiagStateSnapshot()}");
+                    $"dist={handoffProgress:F3} to={StationKeyOf(downstream)} | {DiagStateSnapshot()}");
                 TryTransferDownstream();
                 return;
             }
-
-            Material.position += dir * step;
-            return;
         }
 
-        // 无下游：沿运行方向持续平移
+        Material.position += runAxis * step;
+        StickToBeltHeight();
+    }
+
+    /// <summary>当前滑行/运转对应的世界轴向（已单位化，含正反号）。</summary>
+    protected Vector3 GetRunWorldAxis()
+    {
         var axis = ForwardWorldAxis;
-        if (axis.sqrMagnitude < 1e-8f) return;
+        if (axis.sqrMagnitude < 1e-8f) return Vector3.zero;
         axis.Normalize();
-        var sign = ForwardRun ? 1f : -1f;
-        Material.position += axis * (sign * step);
+        return _lastRunWasForward ? axis : -axis;
     }
 
     /// <summary>
@@ -808,25 +1046,54 @@ public class ConveyorPartMotion : PartMotionBase
         return true;
     }
 
+    /// <summary>把交界点投到本段轴向上；下游不在正前方时用很短的正值，避免在中心瞬切。</summary>
+    protected bool TryGetAxialHandover(
+        ConveyorPartMotion downstream, Vector3 runAxis, out float handoffProgress)
+    {
+        handoffProgress = 0f;
+        if (runAxis.sqrMagnitude < 1e-8f) return false;
+        if (!TryGetHandover(downstream, out var handoffPoint, out _))
+            return false;
+
+        handoffProgress = Vector3.Dot(handoffPoint - MaterialPoint, runAxis);
+        if (handoffProgress < 0.05f)
+            handoffProgress = 0.05f;
+        return true;
+    }
+
+    protected Vector3 BeltUp
+    {
+        get
+        {
+            var up = transform.up;
+            return up.sqrMagnitude > 1e-8f ? up.normalized : Vector3.up;
+        }
+    }
+
+    /// <summary>只校正贴皮带高度，不改水平偏移。顶升带货升起时子类可关闭。</summary>
+    protected virtual bool ShouldStickToBeltHeight => true;
+
+    protected void StickToBeltHeight()
+    {
+        if (Material == null || !ShouldStickToBeltHeight) return;
+        var park = MaterialPoint;
+        var up = BeltUp;
+        var p = Material.position;
+        Material.position = p - up * Vector3.Dot(p - park, up);
+    }
+
     protected void ClampToHandover(ConveyorPartMotion downstream)
     {
         if (Material == null) return;
-        if (!TryGetHandover(downstream, out var handoffPoint, out var handoffDist))
+        var runAxis = GetRunWorldAxis();
+        if (runAxis.sqrMagnitude < 1e-8f) return;
+        if (!TryGetAxialHandover(downstream, runAxis, out var handoffProgress))
             return;
 
         var from = MaterialPoint;
-        var to = downstream.MaterialPoint;
-        var delta = to - from;
-        if (delta.sqrMagnitude < 1e-10f)
-        {
-            Material.position = handoffPoint;
-            return;
-        }
-
-        // 只收束沿连线的进度，保留横向偏差，避免拒收等待时左右闪现
-        var dir = delta.normalized;
-        var progress = Vector3.Dot(Material.position - from, dir);
-        Material.position += dir * (handoffDist - progress);
+        var progress = Vector3.Dot(Material.position - from, runAxis);
+        Material.position += runAxis * (handoffProgress - progress);
+        StickToBeltHeight();
     }
 
     /// <summary>停转时立刻原地刹停。</summary>
@@ -854,9 +1121,9 @@ public class ConveyorPartMotion : PartMotionBase
     {
         if (!CanTransferDownstream) return;
         if (Material == null) return;
-        if (!ForwardRun && !ReverseRun) return;
+        if (!ForwardRun && !ReverseRun && !ShouldCoastDrive) return;
 
-        var downstream = CurrentDownstream;
+        var downstream = ResolveDriveDownstream();
         if (downstream == null)
         {
             _waitingHandoff = false;
@@ -896,17 +1163,14 @@ public class ConveyorPartMotion : PartMotionBase
 
     protected bool IsAtOrPastHandover(ConveyorPartMotion downstream)
     {
-        if (Material == null || !TryGetHandover(downstream, out _, out var handoffDist))
+        if (Material == null) return false;
+        var runAxis = GetRunWorldAxis();
+        if (runAxis.sqrMagnitude < 1e-8f) return false;
+        if (!TryGetAxialHandover(downstream, runAxis, out var handoffProgress))
             return false;
 
-        var from = MaterialPoint;
-        var to = downstream.MaterialPoint;
-        var delta = to - from;
-        if (delta.sqrMagnitude < 1e-10f)
-            return true;
-
-        var progress = Vector3.Dot(Material.position - from, delta.normalized);
-        return progress >= handoffDist - 1e-3f;
+        var progress = Vector3.Dot(Material.position - MaterialPoint, runAxis);
+        return progress >= handoffProgress - 1e-3f;
     }
 
     protected void RecycleMaterial()
@@ -917,6 +1181,7 @@ public class ConveyorPartMotion : PartMotionBase
         Publish("RecycleMaterialModel", Material);
         Material = null;
         Parked = false;
+        ClearCreateDeferred();
         DisarmEmptyRecycle();
         StopBeltDrive();
         DiagLog("RECYCLE", $"mat={matName} | {DiagStateSnapshot()}");
@@ -944,6 +1209,9 @@ public class ConveyorPartMotion : PartMotionBase
         sb.Append(" F=").Append(Bool01(ForwardRun));
         sb.Append(" R=").Append(Bool01(ReverseRun));
         sb.Append(" load=").Append(Bool01(IsLoad));
+        sb.Append(" coast=").Append(Bool01(IsCoasting));
+        sb.Append(" coastDrv=").Append(Bool01(ShouldCoastDrive));
+        sb.Append(" lastFwd=").Append(Bool01(_lastRunWasForward));
         sb.Append(" suppress=").Append(Bool01(_transferSuppressed));
         sb.Append(" canXfer=").Append(Bool01(CanTransferDownstream));
         sb.Append(" canAccept=").Append(Bool01(CanAcceptMaterial));

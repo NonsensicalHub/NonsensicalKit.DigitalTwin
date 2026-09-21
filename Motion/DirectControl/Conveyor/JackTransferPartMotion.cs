@@ -103,6 +103,12 @@ public class JackTransferPartMotion : ConveyorPartMotion
         }
     }
 
+    /// <summary>顶升交权走配对抢货/交还，不按光电空窗往下游滑。</summary>
+    protected override bool ShouldCoastDrive => false;
+
+    /// <summary>货挂在升降台上时不要按输送面高度往下拽。</summary>
+    protected override bool ShouldStickToBeltHeight => !ShouldCargoFollowLift;
+
     protected override bool CanAcceptMaterial => true;
 
     protected override void Init()
@@ -123,12 +129,13 @@ public class JackTransferPartMotion : ConveyorPartMotion
 
     protected override void Update()
     {
-        base.Update();
+        // 升/降途中不要走皮带吸回地面停靠点，否则箱子会在平台上滑偏
+        bool liftTraveling = ShouldCargoFollowLift && !CanTransferDownstream;
+        if (!liftTraveling)
+            base.Update();
 
-        // 升/降过程中保持挂在平台上，避免 MQTT 间隙里被皮带逻辑脱挂后停在半空
         KeepCargoOnLift();
 
-        // 升起到位后 PLC 可能不再刷新：恢复皮带驶向交界再切权
         if (Material != null && CanTransferDownstream && (ForwardRun || ReverseRun)
             && !IsMaterialMoving && !_waitingHandoff)
             EnsureMaterialMotionWhileRunning();
@@ -165,10 +172,11 @@ public class JackTransferPartMotion : ConveyorPartMotion
 
         bool raise = WantRaised && !WantLowered;
 
-        // 先挂货再动平台，升起、降下都能带着走
+        // 先挂货再动平台；第一次挂上时归位到顶升停靠点
         if (ShouldCargoFollowLift)
         {
-            if (AttachToLift(Material, snapToAnchor: false))
+            bool firstAttach = Material.parent != Lift;
+            if (AttachToLift(Material, snapToAnchor: firstAttach))
                 DiagLog("ATTACH_LIFT", DiagStateSnapshot());
         }
 
@@ -228,15 +236,21 @@ public class JackTransferPartMotion : ConveyorPartMotion
 
     protected override void OnMaterialAccepted(Transform material)
     {
-        if (ShouldCargoFollowLift && AttachToLift(material, snapToAnchor: false))
+        if (ShouldCargoFollowLift && AttachToLift(material, snapToAnchor: true))
             DiagLog("ATTACH_LIFT", "on accept | " + DiagStateSnapshot());
     }
 
     protected override void OnMaterialParked()
     {
         if (Material == null) return;
-        if (ShouldCargoFollowLift && AttachToLift(Material, snapToAnchor: false))
-            DiagLog("ATTACH_LIFT", "on parked | " + DiagStateSnapshot());
+        if (ShouldCargoFollowLift)
+        {
+            if (AttachToLift(Material, snapToAnchor: true))
+                DiagLog("ATTACH_LIFT", "on parked | " + DiagStateSnapshot());
+            return;
+        }
+
+        SnapMaterialToPark();
     }
 
     private void SyncPairedExchange()
@@ -265,12 +279,14 @@ public class JackTransferPartMotion : ConveyorPartMotion
             ClearPairedSuppress();
     }
 
-    /// <summary>顶起时从配对输送线抢走已停靠货物。</summary>
+    /// <summary>顶起时从配对输送线抢走已归位货物，并落到顶升停靠点。</summary>
     private void TryTakeFromPaired()
     {
         if (Material != null || m_pairedStation == null)
             return;
-        if (!m_pairedStation.IsParked)
+        if (!m_pairedStation.HasMaterial)
+            return;
+        if (!m_pairedStation.IsAtPark)
             return;
         if (!m_pairedStation.TryTakeAwayMaterial(out var material) || material == null)
             return;
@@ -287,7 +303,7 @@ public class JackTransferPartMotion : ConveyorPartMotion
             $"from={StationKeyOf(m_pairedStation)} mat={material.name} | {DiagStateSnapshot()}");
     }
 
-    /// <summary>降下到位后把货物交还给配对输送线。</summary>
+    /// <summary>降下到位后把货物交还给配对输送线，并归位到对方停靠点。</summary>
     private void TryHandOffToPaired()
     {
         if (m_pairedStation == null || m_pairedStation == this)
@@ -300,7 +316,8 @@ public class JackTransferPartMotion : ConveyorPartMotion
         var material = Material;
         var pairKey = StationKeyOf(m_pairedStation);
         DetachFromLift(material);
-        if (!m_pairedStation.TryAcceptMaterial(material))
+        SnapToPairedPark(m_pairedStation, material);
+        if (!m_pairedStation.TryAcceptMaterial(material, snapToPark: true))
         {
             if (Time.frameCount - _lastPairHandOffFailFrame >= 30)
             {
@@ -361,7 +378,7 @@ public class JackTransferPartMotion : ConveyorPartMotion
 
         if (snapToAnchor)
         {
-            material.position = anchor.position + anchor.up * m_materialHeight;
+            material.position = GetLiftCargoWorldPoint();
             return true;
         }
 
@@ -369,12 +386,29 @@ public class JackTransferPartMotion : ConveyorPartMotion
             return false;
 
         // 只对齐升降轴，保留水平位置，避免半空脱挂后再挂时左右跳动
-        var follow = anchor.position + anchor.up * m_materialHeight;
+        var follow = GetLiftCargoWorldPoint();
         material.position = SignedAxisUtil.WithComponent(
             material.position,
             m_liftDirection,
             SignedAxisUtil.GetComponent(follow, m_liftDirection));
         return true;
+    }
+
+    /// <summary>顶升停靠点：水平用本工位 MaterialPoint，高度跟平台走。</summary>
+    private Vector3 GetLiftCargoWorldPoint()
+    {
+        var dock = MaterialPoint;
+        var liftPose = Lift.position + Lift.up * m_materialHeight;
+        return SignedAxisUtil.WithComponent(
+            dock,
+            m_liftDirection,
+            SignedAxisUtil.GetComponent(liftPose, m_liftDirection));
+    }
+
+    private static void SnapToPairedPark(ConveyorPartMotion paired, Transform material)
+    {
+        if (paired == null || material == null) return;
+        material.position = paired.MaterialPoint;
     }
 
     private bool DetachFromLift(Transform material)

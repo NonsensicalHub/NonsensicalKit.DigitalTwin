@@ -186,7 +186,7 @@ public class LifterPartMotion : ConveyorPartMotion
         ApplyMotionSignals(forward, reverse, isLoad);
     }
 
-    /// <summary>补建时直接落在轿厢中心，避免入口偏移甩到轿厢外。</summary>
+    /// <summary>补建时直接落在轿厢中心，避免生成偏移甩到轿厢外。</summary>
     protected override Vector3 GetCreateSpawnPoint() => MaterialPoint;
 
     protected override void OnMaterialAccepted(Transform material)
