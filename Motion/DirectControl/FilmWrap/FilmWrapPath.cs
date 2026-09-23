@@ -3,6 +3,16 @@ using UnityEngine;
 
 namespace NonsensicalKit.DigitalTwin.Motion
 {
+    /// <summary>缠膜螺旋的垂直方向。</summary>
+    public enum FilmWrapVerticalDirection
+    {
+        [InspectorName("自下而上")]
+        BottomToTop = 0,
+
+        [InspectorName("自上而下")]
+        TopToBottom = 1,
+    }
+
     /// <summary>路径上的一个采样点。t 为工艺路径参数 0~1。</summary>
     public struct FilmWrapSample
     {
@@ -55,6 +65,8 @@ namespace NonsensicalKit.DigitalTwin.Motion
         public float TopY = 1.55f;
         public float Revolutions = 6f;
         public bool UpThenSlightDown = true;
+        /// <summary>垂直缠绕方向：自下而上 / 自上而下。</summary>
+        public FilmWrapVerticalDirection VerticalDirection = FilmWrapVerticalDirection.BottomToTop;
         public int SamplesPerRevolution = 64;
 
         private readonly List<StoredSample> _samples = new List<StoredSample>(512);
@@ -218,14 +230,18 @@ namespace NonsensicalKit.DigitalTwin.Motion
         private float EvaluateHeight(float t)
         {
             t = Mathf.Clamp01(t);
+            float startY = VerticalDirection == FilmWrapVerticalDirection.TopToBottom ? TopY : BottomY;
+            float endY = VerticalDirection == FilmWrapVerticalDirection.TopToBottom ? BottomY : TopY;
+
             if (!UpThenSlightDown)
-                return Mathf.Lerp(BottomY, TopY, t);
+                return Mathf.Lerp(startY, endY, t);
 
+            // 先走到终点高度的 80%，再略回一点
             if (t <= 0.8f)
-                return Mathf.Lerp(BottomY, TopY, t / 0.8f);
+                return Mathf.Lerp(startY, endY, t / 0.8f);
 
-            float tDown = (t - 0.8f) / 0.2f;
-            return Mathf.Lerp(TopY, Mathf.Lerp(TopY, BottomY, 0.25f), tDown);
+            float tReturn = (t - 0.8f) / 0.2f;
+            return Mathf.Lerp(endY, Mathf.Lerp(endY, startY, 0.25f), tReturn);
         }
 
         private void AppendCornerSamples(

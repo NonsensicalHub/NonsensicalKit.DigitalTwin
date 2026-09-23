@@ -4,6 +4,7 @@ using UnityEngine;
 namespace NonsensicalKit.DigitalTwin.Motion
 {
     /// <summary>
+    /// 悬臂式缠膜机,货不动,悬臂带动薄膜卷旋转缠膜
     /// 缠膜机动作：转臂绕货、滑架升降、膜卷自转，并在货物表面生成螺旋膜带。
     /// 不读点位；由 <see cref="RunningStatusPartMotion"/> 的 UnityEvent 调用开关。
     /// 运行时按一轮时长循环；停止时瞬间回到初始姿态并清空膜。
@@ -31,6 +32,9 @@ namespace NonsensicalKit.DigitalTwin.Motion
         [SerializeField] [Range(1f, 12f)] private float m_revolutions = 6f;
         [Tooltip("先升到顶再略降，否则匀速上升")]
         [SerializeField] private bool m_upThenSlightDown = true;
+        [Tooltip("自下而上 / 自上而下")]
+        [SerializeField] private FilmWrapVerticalDirection m_verticalDirection =
+            FilmWrapVerticalDirection.BottomToTop;
         [SerializeField] [Range(16, 128)] private int m_samplesPerRevolution = 64;
 
         [Header("机构")]
@@ -238,6 +242,7 @@ namespace NonsensicalKit.DigitalTwin.Motion
             _path.TopY = m_topY;
             _path.Revolutions = m_revolutions;
             _path.UpThenSlightDown = m_upThenSlightDown;
+            _path.VerticalDirection = m_verticalDirection;
             _path.SamplesPerRevolution = m_samplesPerRevolution;
         }
 

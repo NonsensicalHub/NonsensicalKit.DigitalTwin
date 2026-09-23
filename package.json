@@ -6,7 +6,7 @@
   },
   "version": "1.2.0",
   "unity": "2021.3",
-  "description": "\u6570\u5b57\u5b6a\u751f\u76f8\u5173\uff0c\u4f9d\u8d56Core\n\u5916\u90e8\u4f9d\u8d56UniTask",
+  "description": "数字孪生相关，依赖Core\n外部依赖UniTask",
   "dependencies": {
     "com.unity.cinemachine": "2.8.9",
     "com.nonsensicallab.nonsensicalkit.core": "1.0.7"
@@ -14,27 +14,27 @@
   "samples": [
     {
       "displayName": "MechanicalDrive",
-      "description": "\u673a\u68b0\u673a\u6784",
+      "description": "机械机构",
       "path": "Samples~/MechanicalDrive"
     },
     {
       "displayName": "JointController",
-      "description": "\u591a\u8f74\u8fd0\u52a8\u63a7\u5236",
+      "description": "多轴运动控制",
       "path": "Samples~/JointController"
     },
     {
       "displayName": "MQTT",
-      "description": "MQTT\u6d88\u606f\u8ba2\u9605",
+      "description": "MQTT消息订阅",
       "path": "Samples~/MQTT"
     },
     {
       "displayName": "SocketIO",
-      "description": "SocketIO\u6d88\u606f\u8ba2\u9605",
+      "description": "SocketIO消息订阅",
       "path": "Samples~/SocketIO"
     },
     {
       "displayName": "Warehouse",
-      "description": "\u4ed3\u5e93\u8d27\u4f4d\u7ba1\u7406\u793a\u4f8b",
+      "description": "仓库货位管理示例",
       "path": "Samples~/Warehouse"
     },
     {
@@ -42,5 +42,6 @@
       "description": "仓储示例框架资源地址,因资源文件较大,需自行下载:https://github.com/NonsensicalHub/NonsensicalKit.DigitalTwin.UIFrame.git",
       "path": "Samples~/UIFrame"
     }
-  ]
+  ],
+  "_fingerprint": "9adf29717638779d1a522342e17eb1db7064e8c5"
 }
